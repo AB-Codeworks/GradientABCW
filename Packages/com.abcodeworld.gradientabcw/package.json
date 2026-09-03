@@ -1,0 +1,23 @@
+{
+  "name": "com.abcodeworld.gradientabcw",
+  "version": "0.1.0",
+  "displayName": "Gradient ABCW",
+  "description": "32-key colour/alpha gradient with evaluation-time modulation, Burst LUT baking, and a pure UI Toolkit editor.",
+  "unity": "6000.5",
+  "dependencies": {
+    "com.unity.burst": "1.8.29",
+    "com.unity.collections": "6.5.0",
+    "com.unity.mathematics": "1.4.0",
+    "com.unity.modules.uielements": "1.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Basic Usage",
+      "description": "Evaluate a gradient and bake it to a texture.",
+      "path": "Samples~/BasicUsage"
+    }
+  ],
+  "author": {
+    "name": "AB Codeworld"
+  }
+}

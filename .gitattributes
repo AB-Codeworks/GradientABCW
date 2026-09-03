@@ -1,0 +1,7 @@
+* text=auto
+*.cs text eol=lf
+*.uxml text
+*.uss text
+*.asmdef text
+*.json text
+*.png binary
