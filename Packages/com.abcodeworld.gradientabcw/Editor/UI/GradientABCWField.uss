@@ -1,0 +1,37 @@
+/* Shared tokens for the inspector field and its sub-elements. Uses standard editor variables
+   (--unity-*) so the field matches the current editor skin instead of a custom theme. */
+
+.abcw-gradient-preview {
+    border-width: 1px;
+    border-color: var(--unity-colors-input_field-border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.abcw-gradient-preview--clickable {
+    cursor: link;
+}
+
+.abcw-slider-row {
+    margin-bottom: 2px;
+}
+
+.abcw-slider-row__label {
+    min-width: 90px;
+    width: 90px;
+}
+
+.abcw-slider-row__field {
+    width: 60px;
+}
+
+.abcw-slider-row__reset {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin-left: 2px;
+}
+
+.abcw-modulation-panel {
+    margin-top: 4px;
+}
