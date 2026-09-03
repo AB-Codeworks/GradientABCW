@@ -27,6 +27,8 @@ namespace ABCodeworld.Gradients
         [SerializeField] private GradientModulation modulation;
 
         [NonSerialized] private int version;
+        [NonSerialized] private NativeGradient nativeCache;
+        [NonSerialized] private int nativeVersion = -1;
 
         private GradientABCW()
         {
@@ -59,6 +61,20 @@ namespace ABCodeworld.Gradients
 
         /// <summary>Bumped on every mutation; caches key their state on this to know when to rebuild.</summary>
         public int Version => version;
+
+        /// <summary>An unmanaged snapshot of this gradient for Burst evaluation, rebuilt only when <see cref="Version"/> changes.</summary>
+        public ref readonly NativeGradient Native
+        {
+            get
+            {
+                if (nativeVersion != version)
+                {
+                    nativeCache = NativeGradient.From(this);
+                    nativeVersion = version;
+                }
+                return ref nativeCache;
+            }
+        }
 
         public ReadOnlySpan<ColorKey> ColorKeys => colorKeys;
         public ReadOnlySpan<AlphaKey> AlphaKeys => alphaKeys;
@@ -184,17 +200,10 @@ namespace ABCodeworld.Gradients
         private Color Evaluate(float t, bool applyModulation)
         {
             t = Mathf.Clamp01(t);
-            bool modulate = applyModulation && modulation.IsEffective;
-
-            float sampleT = modulate ? GradientMathTemp.TransformT(modulation, t) : t;
-            Color c = blendMode == BlendMode.Stepped
-                ? GradientMathTemp.SampleStepped(colorKeys, alphaKeys, sampleT)
-                : GradientMathTemp.SampleSmooth(colorKeys, alphaKeys, sampleT);
-
-            if (modulate)
-                c = GradientMathTemp.ApplyHsba(modulation, c);
-
-            return c;
+            var c = applyModulation
+                ? GradientMath.Evaluate(in Native, t)
+                : GradientMath.EvaluateBase(in Native, t);
+            return new Color(c.x, c.y, c.z, c.w);
         }
 
         /// <summary>Deterministic content hash covering keys, blend mode and modulation. Does not depend on <see cref="Version"/>.</summary>
