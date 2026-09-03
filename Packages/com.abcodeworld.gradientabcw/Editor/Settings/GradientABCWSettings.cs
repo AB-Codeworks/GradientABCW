@@ -5,7 +5,7 @@ namespace ABCodeworld.Gradients.Editor
 {
     /// <summary>Project-wide settings for the Gradient ABCW editor tools.</summary>
     [FilePath("ProjectSettings/GradientABCWSettings.asset", FilePathAttribute.Location.ProjectFolder)]
-    internal sealed class GradientABCWSettings : ScriptableSingleton<GradientABCWSettings>
+    public sealed class GradientABCWSettings : ScriptableSingleton<GradientABCWSettings>
     {
         private const string DefaultFolder = "Assets/Gradients";
         private const int DefaultPreviewResolution = 256;
