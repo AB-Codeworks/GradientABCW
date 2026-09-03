@@ -154,6 +154,29 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             Object.DestroyImmediate(secondWindow);
         }
 
+        [Test]
+        public void RepeatedOpenClose_DoesNotLeakPreviewTextures()
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                RecreatePanel();
+                window.BeginSession(TestGradients.Rainbow7(), new GradientPickerSession());
+                simulate.FrameUpdate();
+            }
+
+            int liveCount = 0;
+            foreach (var tex in Resources.FindObjectsOfTypeAll<Texture2D>())
+            {
+                if (tex != null && tex.name == "GradientABCWPreview")
+                    liveCount++;
+            }
+
+            // Only the currently-open window's own preview elements should still be alive; if
+            // GradientPreviewTexture failed to Dispose() on detach, this would grow by roughly
+            // one set of previews per iteration (well past this threshold at 20 iterations).
+            Assert.That(liveCount, Is.LessThan(10));
+        }
+
         private static Button FindButtonByText(VisualElement root, string text)
         {
             Button found = null;
