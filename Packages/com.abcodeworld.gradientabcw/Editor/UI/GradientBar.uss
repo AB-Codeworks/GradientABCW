@@ -1,0 +1,49 @@
+.abcw-bar {
+    min-height: 120px;
+    height: 140px;
+    border-width: 1px;
+    border-color: var(--unity-colors-input_field-border);
+    border-radius: 3px;
+}
+
+.abcw-key {
+    border-width: 1px;
+    border-color: rgb(0, 0, 0);
+    border-radius: 2px;
+}
+
+.abcw-key--selected {
+    border-color: rgb(255, 221, 0);
+    border-width: 2px;
+}
+
+.abcw-key--ghost {
+    opacity: 0.6;
+    border-color: rgb(255, 221, 0);
+}
+
+.abcw-palette-key {
+    width: 84px;
+    height: 40px;
+    margin: 6px 8px;
+    border-width: 1px;
+    border-color: rgb(60, 70, 90);
+    border-radius: 3px;
+    cursor: pan;
+}
+
+.abcw-palette-key--alpha {
+    background-color: rgb(140, 140, 140);
+}
+
+.abcw-palette-key--dragging {
+    opacity: 0.85;
+}
+
+.abcw-key-list {
+    flex-grow: 1;
+}
+
+.abcw-key-list__row {
+    margin-bottom: 2px;
+}
