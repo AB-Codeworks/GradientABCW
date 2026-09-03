@@ -1,0 +1,132 @@
+:root {
+    --bg: #0f1a2b;
+    --panel: #121f33;
+    --border: #1e3454;
+    --text: #d5e7ff;
+    --muted: #9bb3d6;
+    --accent: #a7ff1a;
+    --cyan: #2ee6ff;
+    --blue: #0f1a2b;
+}
+
+.abcw-picker {
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+.abcw-picker Label {
+    color: var(--text);
+}
+
+.abcw-picker-root {
+    flex-grow: 1;
+    flex-direction: column;
+    padding: 6px;
+    cursor: arrow;
+}
+
+.abcw-card {
+    background-color: var(--panel);
+    border-color: var(--border);
+    border-width: 1px;
+    border-radius: 6px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    padding: 6px 8px;
+}
+
+.abcw-library-host {
+    max-height: 220px;
+    flex-shrink: 0;
+}
+
+.abcw-editor-host {
+    flex-grow: 1;
+}
+
+.abcw-bar-row {
+    flex-direction: row;
+}
+
+.abcw-palette {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    padding: 4px;
+    margin-right: 6px;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.abcw-bar-host {
+    flex-grow: 1;
+}
+
+.abcw-lists-row {
+    flex-direction: row;
+    flex-grow: 1;
+    margin-top: 6px;
+}
+
+.abcw-list-col {
+    flex-basis: 33%;
+    flex-grow: 1;
+    margin-right: 6px;
+}
+
+.abcw-btn {
+    color: var(--blue);
+    background-color: var(--cyan);
+}
+
+.abcw-btn:hover {
+    background-color: #4cf0ff;
+}
+
+.abcw-btn--accent {
+    background-color: var(--accent);
+}
+
+.abcw-btn--accent:hover {
+    background-color: #c8ff66;
+}
+
+.abcw-ok-row {
+    flex-direction: row;
+    margin-top: 2px;
+}
+
+.abcw-flex-spacer {
+    flex-grow: 1;
+}
+
+.abcw-library__tile {
+    flex-basis: 23.5%;
+    min-width: 160px;
+    max-width: 320px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    padding: 6px;
+    background-color: var(--panel);
+    border-color: var(--border);
+    border-width: 1px;
+    border-radius: 4px;
+}
+
+/* Lime scrollbars, matching the picker's accent colour, USS only. */
+.abcw-picker .unity-scroller {
+    background-color: #274061;
+}
+
+.abcw-picker .unity-scroller .unity-dragger,
+.abcw-picker .unity-base-slider__dragger {
+    background-color: var(--accent);
+}
+
+.abcw-picker .unity-slider__tracker,
+.abcw-picker .unity-base-slider__tracker {
+    background-color: #274061;
+}

@@ -8,6 +8,10 @@ namespace ABCodeworld.Gradients
     {
         [SerializeField] private GradientABCW gradient = GradientABCW.CreateDefault();
 
-        public GradientABCW Gradient => gradient;
+        public GradientABCW Gradient
+        {
+            get => gradient;
+            set => gradient = value;
+        }
     }
 }
