@@ -1,0 +1,24 @@
+{
+    "name": "ABCodeworld.Gradients.Tests.Runtime",
+    "rootNamespace": "ABCodeworld.Gradients.Tests.Runtime",
+    "references": [
+        "ABCodeworld.Gradients",
+        "UnityEngine.TestRunner",
+        "Unity.Burst",
+        "Unity.Collections",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
