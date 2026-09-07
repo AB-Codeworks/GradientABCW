@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7a889a3ce1c5714f9d71e4cea16dcd3, type: 3}
+  m_Name: Alien Sunset
+  m_EditorClassIdentifier: ABCodeworld.Gradients::ABCodeworld.Gradients.GradientABCWAsset
+  gradient:
+    colorKeys:
+    - color: {r: 0.637014, g: 0.7660377, b: 0.41915274, a: 1}
+      time: 0.10894707
+    - color: {r: 1, g: 0.5490196, b: 0, a: 1}
+      time: 0.2586732
+    - color: {r: 0.5849056, g: 0.09932359, b: 0.09932359, a: 1}
+      time: 0.4729154
+    - color: {r: 0.20851606, g: 0.118588224, b: 0.42352942, a: 1}
+      time: 0.6463786
+    - color: {r: 0.20784314, g: 0.11764706, b: 0.42352942, a: 1}
+      time: 0.7741936
+    - color: {r: 0.03213337, g: 0.17491928, b: 0.94509804, a: 1}
+      time: 1
+    alphaKeys:
+    - alpha: 1
+      time: 0
+    - alpha: 1
+      time: 0.999
+    blendMode: 1
+    modulation:
+      bypass: 0
+      reverse: 0
+      repeats: 14.7
+      repeatMode: 1
+      offset: 0
+      hueShift: 0
+      saturation: 0
+      brightness: 0
+      alpha: 0

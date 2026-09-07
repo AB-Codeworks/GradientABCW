@@ -150,27 +150,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ABCodeworld.Gradients.Dev.GradientDevProbe
   gradient:
     colorKeys:
-    - color: {r: 0, g: 0, b: 0, a: 1}
-      time: 0
-    - color: {r: 1, g: 1, b: 1, a: 1}
+    - color: {r: 0.637014, g: 0.7660377, b: 0.41915274, a: 1}
+      time: 0.10894707
+    - color: {r: 1, g: 0.5490196, b: 0, a: 1}
+      time: 0.25380403
+    - color: {r: 0.5849056, g: 0.09932359, b: 0.09932359, a: 1}
+      time: 0.4729154
+    - color: {r: 0.20851606, g: 0.118588224, b: 0.42352942, a: 1}
+      time: 0.6463786
+    - color: {r: 0.20784314, g: 0.11764706, b: 0.42352942, a: 1}
+      time: 0.7741936
+    - color: {r: 0.03213337, g: 0.17491928, b: 0.94509804, a: 1}
       time: 1
     alphaKeys:
     - alpha: 1
       time: 0
     - alpha: 1
-      time: 1
-    blendMode: 0
+      time: 0.999
+    blendMode: 1
     modulation:
       bypass: 0
       reverse: 0
-      repeats: 1
-      repeatMode: 0
+      repeats: 6.6
+      repeatMode: 1
       offset: 0
       hueShift: 0
       saturation: 0
       brightness: 0
       alpha: 0
-  asset: {fileID: 0}
+  asset: {fileID: 11400000, guid: 9347450ca6f7d0e438ccaf59a5216638, type: 2}
 --- !u!4 &570347607
 Transform:
   m_ObjectHideFlags: 0
