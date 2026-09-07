@@ -44,8 +44,8 @@ namespace ABCodeworld.Gradients.Editor
             scroll.Add(grid);
             Add(scroll);
 
-            GradientAssetWatcher.LibraryChanged += RefreshGrid;
-            RegisterCallback<DetachFromPanelEvent>(_ => GradientAssetWatcher.LibraryChanged -= RefreshGrid);
+            GradientAssetWatcher.LibraryChanged += OnAssetFolderChanged;
+            RegisterCallback<DetachFromPanelEvent>(_ => GradientAssetWatcher.LibraryChanged -= OnAssetFolderChanged);
 
             RefreshGrid();
         }
@@ -63,18 +63,18 @@ namespace ABCodeworld.Gradients.Editor
 
         private void ApplyFolder()
         {
-            string rel = folderField.value?.Trim().Replace("\\", "/");
-            if (string.IsNullOrEmpty(rel) || !rel.StartsWith("Assets"))
+            string rel = GradientLibrary.NormalizeFolder(folderField.value);
+            if (rel == null)
             {
                 EditorUtility.DisplayDialog("Invalid Folder", "Folder must be inside Assets.", "OK");
                 return;
             }
 
-            if (!AssetDatabase.IsValidFolder(rel))
+            if (!GradientLibrary.Exists(rel))
             {
                 if (!EditorUtility.DisplayDialog("Create Folder?", $"Create '{rel}'?", "Create", "Cancel"))
                     return;
-                CreateNestedFolders(rel);
+                GradientLibrary.CreateFolder(rel);
             }
 
             folder = rel;
@@ -83,59 +83,34 @@ namespace ABCodeworld.Gradients.Editor
 
         private void SetDefault() => GradientABCWSettings.instance.DefaultLibraryFolder = folderField.value;
 
-        private static void CreateNestedFolders(string fullPath)
-        {
-            var parts = fullPath.Split('/');
-            string cur = parts[0];
-            for (int i = 1; i < parts.Length; i++)
-            {
-                string next = cur + "/" + parts[i];
-                if (!AssetDatabase.IsValidFolder(next))
-                    AssetDatabase.CreateFolder(cur, parts[i]);
-                cur = next;
-            }
-        }
-
         private void SaveCurrent()
         {
-            if (!AssetDatabase.IsValidFolder(folder))
+            if (!GradientLibrary.Exists(folder))
             {
                 EditorUtility.DisplayDialog("Invalid Folder", "Choose a valid library folder.", "OK");
                 return;
             }
 
-            var current = GetCurrentGradient?.Invoke();
-            if (current == null)
-                return;
+            if (GradientLibrary.Save(folder, saveNameField.value, GetCurrentGradient?.Invoke()) != null)
+                RefreshGrid();
+        }
 
-            string baseName = string.IsNullOrWhiteSpace(saveNameField.value) ? "NewGradientABCW" : saveNameField.value.Trim();
-            string path = AssetDatabase.GenerateUniqueAssetPath($"{folder}/{baseName}.asset");
-
-            var asset = ScriptableObject.CreateInstance<GradientABCWAsset>();
-            asset.Gradient = current.Clone();
-            AssetDatabase.CreateAsset(asset, path);
-            AssetDatabase.SaveAssets();
-
-            RefreshGrid();
+        /// <summary>
+        /// Rebuilds only when the change landed in the folder this panel is showing. A rebuild recreates a
+        /// preview element, and therefore a texture, per gradient in the library, so it is not something to
+        /// do because an unrelated ScriptableObject was saved somewhere else in the project.
+        /// </summary>
+        private void OnAssetFolderChanged(string changedFolder)
+        {
+            if (GradientAssetWatcher.Affects(folder, changedFolder))
+                RefreshGrid();
         }
 
         private void RefreshGrid()
         {
             grid.Clear();
-            if (!AssetDatabase.IsValidFolder(folder))
-                return;
 
-            var assets = new List<GradientABCWAsset>();
-            foreach (var guid in AssetDatabase.FindAssets("t:GradientABCWAsset", new[] { folder }))
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-                var asset = AssetDatabase.LoadAssetAtPath<GradientABCWAsset>(path);
-                if (asset != null)
-                    assets.Add(asset);
-            }
-            assets.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
-
-            foreach (var asset in assets)
+            foreach (var asset in GradientLibrary.Load(folder))
                 grid.Add(CreateTile(asset));
         }
 
@@ -171,10 +146,7 @@ namespace ABCodeworld.Gradients.Editor
             if (current == null)
                 return;
 
-            Undo.RecordObject(asset, "Overwrite Gradient Asset");
-            asset.Gradient = current.Clone();
-            EditorUtility.SetDirty(asset);
-            AssetDatabase.SaveAssets();
+            GradientLibrary.Overwrite(asset, current);
             preview.Gradient = asset.Gradient;
         }
 
@@ -183,7 +155,7 @@ namespace ABCodeworld.Gradients.Editor
             if (!EditorUtility.DisplayDialog("Delete Asset", $"Delete '{asset.name}'?", "Delete", "Cancel"))
                 return;
 
-            AssetDatabase.DeleteAsset(AssetDatabase.GetAssetPath(asset));
+            GradientLibrary.Delete(asset);
             RefreshGrid();
         }
     }

@@ -23,7 +23,7 @@ namespace ABCodeworld.Gradients.Editor
             get => currentValue;
             set
             {
-                if (Equals(currentValue, value))
+                if (currentValue.Equals(value))
                     return;
 
                 using var evt = ChangeEvent<GradientModulation>.GetPooled(currentValue, value);
@@ -110,10 +110,5 @@ namespace ABCodeworld.Gradients.Editor
 
             SetValueWithoutNotify(GradientModulation.Identity);
         }
-
-        private static bool Equals(in GradientModulation a, in GradientModulation b) =>
-            a.bypass == b.bypass && a.reverse == b.reverse && a.repeats == b.repeats && a.repeatMode == b.repeatMode &&
-            a.offset == b.offset && a.hueShift == b.hueShift && a.saturation == b.saturation &&
-            a.brightness == b.brightness && a.alpha == b.alpha;
     }
 }

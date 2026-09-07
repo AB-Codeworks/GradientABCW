@@ -32,6 +32,13 @@ namespace ABCodeworld.Gradients
         /// <summary>Precomputed so the hot path is a single branch: modulation is neither bypassed nor at its identity value.</summary>
         internal byte modEffective;
 
+        /// <summary>
+        /// Precomputed: true only when hue or saturation is actually adjusted, and the RGB to HSV round
+        /// trip is therefore unavoidable. Brightness and alpha are plain lerps in RGB, so the common case
+        /// of dimming or fading a gradient can skip the conversion entirely.
+        /// </summary>
+        internal byte modNeedsHsv;
+
         public static NativeGradient From(GradientABCW gradient)
         {
             if (gradient is null)
@@ -70,6 +77,7 @@ namespace ABCodeworld.Gradients
             native.modBrightness = m.brightness;
             native.modAlpha = m.alpha;
             native.modEffective = (byte)(m.IsEffective ? 1 : 0);
+            native.modNeedsHsv = (byte)(UnityEngine.Mathf.Abs(m.hueShift) > 1e-6f || UnityEngine.Mathf.Abs(m.saturation) > 1e-6f ? 1 : 0);
 
             return native;
         }

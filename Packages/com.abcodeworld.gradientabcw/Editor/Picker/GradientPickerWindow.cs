@@ -25,6 +25,7 @@ namespace ABCodeworld.Gradients.Editor
         private KeyListElement alphaList;
         private GradientLibraryPanel libraryPanel;
         private GradientActionsPanel actionsPanel;
+        private IVisualElementScheduledItem pendingLivePreview;
 
         /// <summary>The gradient being edited (a clone of what the window was opened with).</summary>
         public GradientABCW Working => working;
@@ -164,9 +165,32 @@ namespace ABCodeworld.Gradients.Editor
             bar.Gradient = working;
             colorList.Refresh();
             alphaList.Refresh();
+            RequestLivePreview();
+        }
 
-            if (session != null && session.LivePreview)
-                session.Changed?.Invoke(working.Clone());
+        /// <summary>
+        /// Queues at most one live-preview push per editor frame.
+        /// </summary>
+        /// <remarks>
+        /// A drag raises <see cref="OnWorkingChanged"/> on every pointer-move, and each push is far from
+        /// free: it clones the whole gradient and, once the property drawer writes it through, costs a
+        /// serialize and an undo record too. Pointer-moves arrive faster than frames, so coalescing here
+        /// drops the redundant ones without changing what the caller eventually sees.
+        /// </remarks>
+        private void RequestLivePreview()
+        {
+            if (session == null || !session.LivePreview || session.Changed == null)
+                return;
+
+            pendingLivePreview ??= rootVisualElement.schedule.Execute(PushLivePreview);
+            pendingLivePreview.ExecuteLater(0);
+        }
+
+        private void PushLivePreview()
+        {
+            if (sessionEnded || working == null)
+                return;
+            session?.Changed?.Invoke(working.Clone());
         }
 
         private void Accept()

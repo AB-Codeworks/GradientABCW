@@ -9,7 +9,7 @@ namespace ABCodeworld.Gradients
     /// without discarding the stored values, replacing the legacy static "Activate/Deactivate Mods" toggle.
     /// </summary>
     [Serializable]
-    public struct GradientModulation
+    public struct GradientModulation : IEquatable<GradientModulation>
     {
         public bool bypass;
         public bool reverse;
@@ -55,6 +55,27 @@ namespace ABCodeworld.Gradients
 
         /// <summary>True when modulation actually changes evaluation output: not bypassed and not identity.</summary>
         public readonly bool IsEffective => !bypass && !IsIdentity;
+
+        /// <summary>
+        /// Exact field-by-field equality. Used to suppress no-op writes: a UI control re-sending the value
+        /// it already holds must not bump <see cref="GradientABCW.Version"/>, or every cached LUT, native
+        /// snapshot and preview texture downstream would rebuild for nothing.
+        /// </summary>
+        public readonly bool Equals(GradientModulation other) =>
+            bypass == other.bypass && reverse == other.reverse && repeats == other.repeats &&
+            repeatMode == other.repeatMode && offset == other.offset && hueShift == other.hueShift &&
+            saturation == other.saturation && brightness == other.brightness && alpha == other.alpha;
+
+        public readonly override bool Equals(object obj) => obj is GradientModulation other && Equals(other);
+
+        public readonly override int GetHashCode() =>
+            HashCode.Combine(
+                HashCode.Combine(bypass, reverse, repeats, repeatMode),
+                offset, hueShift, saturation, brightness, alpha);
+
+        public static bool operator ==(GradientModulation a, GradientModulation b) => a.Equals(b);
+
+        public static bool operator !=(GradientModulation a, GradientModulation b) => !a.Equals(b);
 
         /// <summary>Returns a copy with every field clamped to its valid range.</summary>
         public readonly GradientModulation Clamped()

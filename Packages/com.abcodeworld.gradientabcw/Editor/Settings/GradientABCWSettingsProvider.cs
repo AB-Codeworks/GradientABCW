@@ -36,6 +36,22 @@ namespace ABCodeworld.Gradients.Editor
                     var livePreviewToggle = new Toggle("Live Preview In Picker") { value = settings.PickerLivePreview, style = { marginTop = 8 } };
                     livePreviewToggle.RegisterValueChangedCallback(evt => settings.PickerLivePreview = evt.newValue);
                     rootElement.Add(livePreviewToggle);
+
+                    // Exposed now that it is actually read. Previews bake at this width and are stretched
+                    // to fit, so it trades preview sharpness on wide inspectors against bake cost.
+                    var resolutionField = new IntegerField("Preview Resolution")
+                    {
+                        value = settings.PreviewResolution,
+                        isDelayed = true,
+                        tooltip = "Width every gradient preview strip is baked at, independent of how wide it is drawn.",
+                        style = { marginTop = 4 },
+                    };
+                    resolutionField.RegisterValueChangedCallback(evt =>
+                    {
+                        settings.PreviewResolution = evt.newValue;
+                        resolutionField.SetValueWithoutNotify(settings.PreviewResolution);
+                    });
+                    rootElement.Add(resolutionField);
                 },
                 keywords = new System.Collections.Generic.HashSet<string>(new[] { "Gradient", "ABCW" }),
             };

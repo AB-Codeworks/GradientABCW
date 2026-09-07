@@ -12,12 +12,11 @@ namespace ABCodeworld.Gradients.Editor
     /// </summary>
     internal sealed class GradientBarElement : VisualElement
     {
-        private const float LaneHeight = 24f;
-        private const float PadX = 12f;
-        private const float NeighbourClampEpsilon = 1e-3f;
-        private const float RemoveThreshold = 5f;
-        private const float HandleWidth = 15f;
-        private const float HandleHeight = 18f;
+        // Layout constants and the arithmetic over them live in BarGeometry; this class keeps input
+        // handling, handle elements and mutation. NeighbourClampEpsilon used to be declared here too and
+        // was never read: the clamping it named is done by GradientABCW.
+        private const float LaneHeight = BarGeometry.LaneHeight;
+        private const float PadX = BarGeometry.PadX;
 
         private readonly GradientPreviewElement preview;
         private readonly VisualElement handleLayer;
@@ -31,13 +30,22 @@ namespace ABCodeworld.Gradients.Editor
         private bool selectedIsAlpha;
         private int lastSyncedVersion = -1;
 
+        /// <remarks>
+        /// Re-assigning the same instance is a refresh request, not an invalidation — the picker does
+        /// exactly that after every edit. Clearing <c>lastSyncedVersion</c> unconditionally defeated the
+        /// version check in <see cref="SyncHandles"/>, so every pointer-move of a drag rebuilt all handle
+        /// styles and forced a preview re-bake even when nothing had changed.
+        /// </remarks>
         public GradientABCW Gradient
         {
             get => gradient;
             set
             {
-                gradient = value;
-                lastSyncedVersion = -1;
+                if (!ReferenceEquals(gradient, value))
+                {
+                    gradient = value;
+                    lastSyncedVersion = -1;
+                }
                 SyncHandles();
             }
         }
@@ -87,7 +95,9 @@ namespace ABCodeworld.Gradients.Editor
             RegisterCallback<PointerDownEvent>(OnBarPointerDown);
             RegisterCallback<PointerMoveEvent>(evt => HoverTime = GetTimeFromLocalPosition(evt.localPosition));
             RegisterCallback<KeyDownEvent>(OnKeyDown);
-            RegisterCallback<GeometryChangedEvent>(_ => SyncHandles(force: true));
+            // A resize moves handles but changes no key data, so it takes the cheap reposition path rather
+            // than re-deriving every handle's colour and selection state and re-assigning the preview.
+            RegisterCallback<GeometryChangedEvent>(_ => RepositionHandles());
         }
 
         public float GetTimeFromPanelPosition(Vector2 panelPosition)
@@ -116,26 +126,11 @@ namespace ABCodeworld.Gradients.Editor
             ghost.style.backgroundColor = isAlpha ? new Color(0.55f, 0.55f, 0.55f) : Color.black;
         }
 
-        private Rect GetBarRect()
-        {
-            var r = contentRect;
-            float innerW = Mathf.Max(2f, r.width - 2f * PadX);
-            return new Rect(PadX, LaneHeight, innerW, Mathf.Max(2f, r.height - 2f * LaneHeight));
-        }
+        private BarGeometry Geometry => new BarGeometry(contentRect);
 
-        private float GetTimeFromLocalPosition(Vector2 localPosition)
-        {
-            var bar = GetBarRect();
-            return Mathf.Clamp01((localPosition.x - bar.x) / bar.width);
-        }
+        private float GetTimeFromLocalPosition(Vector2 localPosition) => Geometry.TimeAt(localPosition);
 
-        private Rect HandleRect(float time, bool isAlpha)
-        {
-            var bar = GetBarRect();
-            float x = bar.x + time * bar.width;
-            float y = isAlpha ? 3f : (contentRect.height - LaneHeight + 3f);
-            return new Rect(x - HandleWidth / 2f, y, HandleWidth, HandleHeight);
-        }
+        private Rect HandleRect(float time, bool isAlpha) => Geometry.HandleRect(time, isAlpha);
 
         private void SyncHandles(bool force = false)
         {
@@ -169,6 +164,28 @@ namespace ABCodeworld.Gradients.Editor
             lastSyncedVersion = gradient.Version;
         }
 
+        /// <summary>
+        /// Moves the existing handles to match the current layout, without touching key data, colours,
+        /// selection or the preview. Safe to call on every <see cref="GeometryChangedEvent"/>.
+        /// </summary>
+        private void RepositionHandles()
+        {
+            if (gradient == null)
+                return;
+
+            var colorKeys = gradient.ColorKeys;
+            for (int i = 0; i < colorHandles.Count && i < colorKeys.Length; i++)
+                PositionHandle(colorHandles[i], colorKeys[i].time, false);
+
+            var alphaKeys = gradient.AlphaKeys;
+            for (int i = 0; i < alphaHandles.Count && i < alphaKeys.Length; i++)
+                PositionHandle(alphaHandles[i], alphaKeys[i].time, true);
+
+            // The first layout pass is also the first chance the preview has to bake, so give it one
+            // refresh; it early-outs on its own version stamp from then on.
+            preview.Refresh();
+        }
+
         private void PositionHandle(GradientKeyHandle handle, float time, bool isAlpha)
         {
             var r = HandleRect(time, isAlpha);
@@ -195,16 +212,19 @@ namespace ABCodeworld.Gradients.Editor
             if (gradient == null)
                 return null;
 
+            // Resolved once rather than rebuilt inside the loop for each of up to 64 keys.
+            var geometry = Geometry;
+
             var alphaKeys = gradient.AlphaKeys;
             for (int i = 0; i < alphaKeys.Length; i++)
             {
-                if (HandleRect(alphaKeys[i].time, true).Contains(localPosition))
+                if (geometry.HandleRect(alphaKeys[i].time, true).Contains(localPosition))
                     return (i, true);
             }
             var colorKeys = gradient.ColorKeys;
             for (int i = 0; i < colorKeys.Length; i++)
             {
-                if (HandleRect(colorKeys[i].time, false).Contains(localPosition))
+                if (geometry.HandleRect(colorKeys[i].time, false).Contains(localPosition))
                     return (i, false);
             }
             return null;
@@ -242,11 +262,8 @@ namespace ABCodeworld.Gradients.Editor
             RaiseChanged();
         }
 
-        private bool ShouldRemoveAt(int index, bool isAlpha, Vector2 localPosition)
-        {
-            var r = contentRect;
-            return isAlpha ? localPosition.y < -RemoveThreshold : localPosition.y > r.height + RemoveThreshold;
-        }
+        private bool ShouldRemoveAt(int index, bool isAlpha, Vector2 localPosition) =>
+            Geometry.IsOutsideLane(isAlpha, localPosition);
 
         private void RemoveKey(int index, bool isAlpha)
         {

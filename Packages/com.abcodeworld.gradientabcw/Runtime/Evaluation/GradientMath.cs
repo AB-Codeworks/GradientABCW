@@ -87,9 +87,31 @@ namespace ABCodeworld.Gradients
             return new float4(rgb, a);
         }
 
+        // The colour and alpha lanes below run the same search twice over. Factoring it into a shared
+        // helper taking a float* was measured and reverted: the Editor's Mono JIT would not inline the
+        // helper, and the resulting call plus the `fixed` pin cost ~7% on the unmodulated path, which is
+        // the single most common way this code is entered. The duplication buys back that 7%. Keep the
+        // two copies in step by hand.
+
         private static float3 EvaluateColorSmooth(in NativeGradient g, float t)
         {
             int n = g.colorCount;
+
+            // A two-key ramp is by far the most common gradient, and for it the general search below
+            // collapses to one lerp. Peeling it out skips the endpoint tests and the loop setup entirely.
+            if (n == 2)
+            {
+                float t0 = g.colorTimes[0], t1 = g.colorTimes[1];
+                var lo2 = new float3(g.colorR[0], g.colorG[0], g.colorB[0]);
+                if (t <= t0)
+                    return lo2;
+                var hi2 = new float3(g.colorR[1], g.colorG[1], g.colorB[1]);
+                if (t >= t1)
+                    return hi2;
+                float span2 = t1 - t0;
+                return math.lerp(lo2, hi2, span2 > 1e-9f ? (t - t0) / span2 : 0f);
+            }
+
             if (n == 1)
                 return new float3(g.colorR[0], g.colorG[0], g.colorB[0]);
             if (t <= g.colorTimes[0])
@@ -115,6 +137,18 @@ namespace ABCodeworld.Gradients
         private static float EvaluateAlphaSmooth(in NativeGradient g, float t)
         {
             int n = g.alphaCount;
+
+            if (n == 2)
+            {
+                float t0 = g.alphaTimes[0], t1 = g.alphaTimes[1];
+                if (t <= t0)
+                    return g.alphaValues[0];
+                if (t >= t1)
+                    return g.alphaValues[1];
+                float span2 = t1 - t0;
+                return math.lerp(g.alphaValues[0], g.alphaValues[1], span2 > 1e-9f ? (t - t0) / span2 : 0f);
+            }
+
             if (n == 1)
                 return g.alphaValues[0];
             if (t <= g.alphaTimes[0])
@@ -135,20 +169,32 @@ namespace ABCodeworld.Gradients
             return math.lerp(g.alphaValues[lo], g.alphaValues[hi], u);
         }
 
+        // Stepped sampling picks the first key whose midpoint with its successor exceeds t. Midpoints are
+        // non-decreasing because key times are sorted, so a binary search selects exactly the same bucket
+        // as the linear scan these replace, in O(log n) instead of O(n).
+        //
+        // The midpoint MUST be rounded to float32 in a local before the comparison, exactly as the linear
+        // scan did. Inlining it into the `if` lets the JIT keep the intermediate at extended precision,
+        // and for a sample sitting exactly on a midpoint that flips the comparison and selects the
+        // neighbouring key. With seven keys at i/6 this is reachable in practice: the midpoint of keys 1
+        // and 2 is 0.25 in float32 but 0.2500000075 kept wide, so a sample at exactly 0.25 lands one key
+        // to the left. Do not fold these locals back into the conditions.
+
         private static float3 SampleSteppedColor(in NativeGradient g, float t)
         {
             int n = g.colorCount;
             if (n == 1)
                 return new float3(g.colorR[0], g.colorG[0], g.colorB[0]);
 
-            int last = n - 1;
-            for (int i = 0; i < last; i++)
+            int lo = 0, hi = n - 1;
+            while (lo < hi)
             {
-                float mid = 0.5f * (g.colorTimes[i] + g.colorTimes[i + 1]);
-                if (t < mid)
-                    return new float3(g.colorR[i], g.colorG[i], g.colorB[i]);
+                int mid = (lo + hi) >> 1;
+                float boundary = 0.5f * (g.colorTimes[mid] + g.colorTimes[mid + 1]);
+                if (t < boundary) hi = mid;
+                else lo = mid + 1;
             }
-            return new float3(g.colorR[last], g.colorG[last], g.colorB[last]);
+            return new float3(g.colorR[lo], g.colorG[lo], g.colorB[lo]);
         }
 
         private static float SampleSteppedAlpha(in NativeGradient g, float t)
@@ -157,27 +203,37 @@ namespace ABCodeworld.Gradients
             if (n == 1)
                 return g.alphaValues[0];
 
-            int last = n - 1;
-            for (int i = 0; i < last; i++)
+            int lo = 0, hi = n - 1;
+            while (lo < hi)
             {
-                float mid = 0.5f * (g.alphaTimes[i] + g.alphaTimes[i + 1]);
-                if (t < mid)
-                    return g.alphaValues[i];
+                int mid = (lo + hi) >> 1;
+                float boundary = 0.5f * (g.alphaTimes[mid] + g.alphaTimes[mid + 1]);
+                if (t < boundary) hi = mid;
+                else lo = mid + 1;
             }
-            return g.alphaValues[last];
+            return g.alphaValues[lo];
         }
 
         private static float4 ApplyHsba(in NativeGradient g, float4 c)
         {
-            float3 hsv = RgbToHsv(c.xyz);
+            float3 rgb = c.xyz;
 
-            float h = hsv.x + g.modHueShift;
-            h -= math.floor(h);
+            // Only hue and saturation need HSV. Brightness and alpha are plain lerps in RGB, so dimming or
+            // fading a gradient — a common case on its own — no longer pays for a full round trip per
+            // sample. When hue and saturation are both neutral the round trip was returning its input.
+            if (g.modNeedsHsv != 0)
+            {
+                float3 hsv = ColorSpaceMath.RgbToHsv(rgb);
 
-            float s = g.modSaturation >= 0f ? math.lerp(hsv.y, 1f, g.modSaturation) : math.lerp(hsv.y, 0f, -g.modSaturation);
-            s = math.saturate(s);
+                float h = hsv.x + g.modHueShift;
+                h -= math.floor(h);
 
-            float3 rgb = HsvToRgb(new float3(h, s, hsv.z));
+                float s = g.modSaturation >= 0f ? math.lerp(hsv.y, 1f, g.modSaturation) : math.lerp(hsv.y, 0f, -g.modSaturation);
+                s = math.saturate(s);
+
+                rgb = ColorSpaceMath.HsvToRgb(new float3(h, s, hsv.z));
+            }
+
             float a = c.w;
 
             if (math.abs(g.modBrightness) > 1e-6f)
@@ -193,88 +249,5 @@ namespace ABCodeworld.Gradients
             return new float4(rgb, math.saturate(a));
         }
 
-        /// <summary>Ported from <c>UnityEngine.Color.RGBToHSV</c> so hue/saturation/value match Unity's own conversion.</summary>
-        internal static float3 RgbToHsv(float3 c)
-        {
-            float h, s, v;
-            if (c.z > c.y && c.z > c.x)
-                RgbToHsvHelper(4f, c.z, c.x, c.y, out h, out s, out v);
-            else if (c.y > c.x)
-                RgbToHsvHelper(2f, c.y, c.z, c.x, out h, out s, out v);
-            else
-                RgbToHsvHelper(0f, c.x, c.y, c.z, out h, out s, out v);
-            return new float3(h, s, v);
-        }
-
-        private static void RgbToHsvHelper(float offset, float dominant, float colorOne, float colorTwo, out float h, out float s, out float v)
-        {
-            v = dominant;
-            if (v != 0f)
-            {
-                float small = math.min(colorOne, colorTwo);
-                float diff = v - small;
-                if (diff != 0f)
-                {
-                    s = diff / v;
-                    colorOne = (v - colorOne) / diff;
-                    colorTwo = (v - colorTwo) / diff;
-                    h = offset + colorTwo - colorOne;
-                }
-                else
-                {
-                    s = 0f;
-                    h = offset + colorTwo - colorOne;
-                }
-                h /= 6f;
-                if (h < 0f)
-                    h += 1f;
-            }
-            else
-            {
-                s = 0f;
-                h = 0f;
-            }
-        }
-
-        /// <summary>Ported from <c>UnityEngine.Color.HSVToRGB</c> (HDR variant: no output clamping).</summary>
-        internal static float3 HsvToRgb(float3 hsv)
-        {
-            float h = hsv.x, s = hsv.y, v = hsv.z;
-            if (s == 0f)
-                return new float3(v, v, v);
-            if (v == 0f)
-                return float3.zero;
-
-            float num = h * 6f;
-            int num2 = (int)math.floor(num);
-            float num3 = num - num2;
-            float num4 = v * (1f - s);
-            float num5 = v * (1f - s * num3);
-            float num6 = v * (1f - s * (1f - num3));
-
-            switch (num2 + 1)
-            {
-                case 0: return new float3(v, num4, num5);
-                case 1: return new float3(v, num6, num4);
-                case 2: return new float3(num5, v, num4);
-                case 3: return new float3(num4, v, num6);
-                case 4: return new float3(num4, num5, v);
-                case 5: return new float3(num6, num4, v);
-                case 6: return new float3(v, num4, num5);
-                case 7: return new float3(v, num6, num4);
-                default: return new float3(1f, 1f, 1f);
-            }
-        }
-
-        /// <summary>Ported from <c>Mathf.GammaToLinearSpace</c>, matching <c>UnityEngine.Color.linear</c> per channel.</summary>
-        internal static float GammaToLinear(float value)
-        {
-            if (value <= 0f) return 0f;
-            if (value <= 0.04045f) return value / 12.92f;
-            if (value < 1f) return math.pow((value + 0.055f) / 1.055f, 2.4f);
-            return math.pow(value, 2.4f);
-        }
-
-        public static float3 SrgbToLinear(float3 c) => new float3(GammaToLinear(c.x), GammaToLinear(c.y), GammaToLinear(c.z));
     }
 }

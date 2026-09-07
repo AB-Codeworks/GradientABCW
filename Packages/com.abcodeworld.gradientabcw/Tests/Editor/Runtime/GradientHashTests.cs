@@ -31,8 +31,12 @@ namespace ABCodeworld.Gradients.Tests.Editor.Runtime
             int hashBefore = g.ComputeContentHash();
             int versionBefore = g.Version;
 
-            // Force a version bump with no content change (re-clamp a modulation to itself).
-            g.Modulation = g.Modulation;
+            // Force a version bump with no net content change. This used to write a modulation back over
+            // itself, which relied on no-op writes bumping the version; they no longer do, since that was
+            // invalidating every downstream cache for nothing. Changing a value and changing it back
+            // exercises the same property with the same end state.
+            g.BlendMode = BlendMode.Stepped;
+            g.BlendMode = BlendMode.Smooth;
 
             Assert.That(g.Version, Is.GreaterThan(versionBefore));
             Assert.That(g.ComputeContentHash(), Is.EqualTo(hashBefore));

@@ -12,9 +12,17 @@ namespace ABCodeworld.Gradients.Editor
     /// </summary>
     internal sealed class KeyListElement : VisualElement
     {
+        /// <summary>
+        /// Per-row state, including direct references to the row's controls. Looking them up with
+        /// <c>row.Q&lt;T&gt;()</c> on every bind meant three tree queries per visible row per refresh, and a
+        /// refresh happens on every pointer-move of a drag.
+        /// </summary>
         private sealed class RowContext
         {
             public int KeyIndex;
+            public FloatField Time;
+            public Slider Alpha;
+            public ColorField Color;
         }
 
         private readonly bool isAlpha;
@@ -49,17 +57,34 @@ namespace ABCodeworld.Gradients.Editor
             Refresh();
         }
 
+        /// <summary>
+        /// Re-reads key values into the visible rows, rebuilding the row elements only when the number of
+        /// keys actually changed.
+        /// </summary>
+        /// <remarks>
+        /// This used to call <c>Rebuild()</c> unconditionally, which tears down and recreates every row
+        /// element, defeating the ListView's own pooling. Dragging a key in the picker calls this on both
+        /// lists on every pointer-move, so the common case — same key count, changed values — now takes
+        /// the cheap path.
+        /// </remarks>
         public void Refresh()
         {
             if (gradient == null)
                 return;
 
             int count = isAlpha ? gradient.AlphaKeys.Length : gradient.ColorKeys.Length;
-            indices.Clear();
-            for (int i = 0; i < count; i++)
-                indices.Add(i);
 
-            listView.Rebuild();
+            if (indices.Count != count)
+            {
+                indices.Clear();
+                for (int i = 0; i < count; i++)
+                    indices.Add(i);
+
+                listView.Rebuild();
+                return;
+            }
+
+            listView.RefreshItems();
         }
 
         private VisualElement MakeItem()
@@ -81,6 +106,7 @@ namespace ABCodeworld.Gradients.Editor
                     gradient.SetAlphaKey(i, new AlphaKey(evt.newValue, gradient.AlphaKeys[i].time));
                     NotifyChanged();
                 });
+                context.Alpha = slider;
                 row.Add(slider);
                 row.RegisterCallback<FocusInEvent>(_ => KeySelected?.Invoke(context.KeyIndex, true));
             }
@@ -95,6 +121,7 @@ namespace ABCodeworld.Gradients.Editor
                     gradient.SetColorKey(i, new ColorKey(evt.newValue, gradient.ColorKeys[i].time));
                     NotifyChanged();
                 });
+                context.Color = colorField;
                 row.Add(colorField);
                 row.RegisterCallback<FocusInEvent>(_ => KeySelected?.Invoke(context.KeyIndex, false));
             }
@@ -111,6 +138,7 @@ namespace ABCodeworld.Gradients.Editor
                 Refresh(); // re-sort may have reordered keys
                 NotifyChanged();
             });
+            context.Time = timeField;
             row.Add(timeField);
 
             var deleteButton = new Button(() =>
@@ -142,11 +170,18 @@ namespace ABCodeworld.Gradients.Editor
             context.KeyIndex = indices[listIndex];
             int keyIndex = context.KeyIndex;
 
-            row.Q<FloatField>("time").SetValueWithoutNotify(isAlpha ? gradient.AlphaKeys[keyIndex].time : gradient.ColorKeys[keyIndex].time);
             if (isAlpha)
-                row.Q<Slider>("value").SetValueWithoutNotify(gradient.AlphaKeys[keyIndex].alpha);
+            {
+                var key = gradient.AlphaKeys[keyIndex];
+                context.Time.SetValueWithoutNotify(key.time);
+                context.Alpha.SetValueWithoutNotify(key.alpha);
+            }
             else
-                row.Q<ColorField>("value").SetValueWithoutNotify(gradient.ColorKeys[keyIndex].color);
+            {
+                var key = gradient.ColorKeys[keyIndex];
+                context.Time.SetValueWithoutNotify(key.time);
+                context.Color.SetValueWithoutNotify(key.color);
+            }
         }
 
         private void NotifyChanged() => Changed?.Invoke();

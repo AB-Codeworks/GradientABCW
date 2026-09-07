@@ -41,7 +41,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.Runtime
             const int size = 256;
 
             using var jobResult = new NativeArray<float4>(size, Allocator.TempJob);
-            GradientLut.ScheduleBake(in native, jobResult, GradientLutOptions.Final).Complete();
+            GradientJobs.ScheduleBake(in native, jobResult, GradientLutOptions.Final).Complete();
 
             using var managedResult = new NativeArray<float4>(size, Allocator.Temp);
             GradientLut.Bake(in native, managedResult, GradientLutOptions.Final);
@@ -65,7 +65,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.Runtime
             using var nativeTimes = new NativeArray<float>(times, Allocator.TempJob);
             using var results = new NativeArray<float4>(times.Length, Allocator.TempJob);
 
-            GradientLut.ScheduleEvaluate(in native, nativeTimes, results, includeModulation: true).Complete();
+            GradientJobs.ScheduleEvaluate(in native, nativeTimes, results, includeModulation: true).Complete();
 
             for (int i = 0; i < times.Length; i++)
             {

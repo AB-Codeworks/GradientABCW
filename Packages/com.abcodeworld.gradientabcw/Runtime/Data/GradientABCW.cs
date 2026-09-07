@@ -12,9 +12,20 @@ namespace ABCodeworld.Gradients
     /// A reference type rather than a struct so that editors and consumers share one instance and one
     /// evaluation cache without the aliasing pitfalls of copying a struct that owns arrays. Use
     /// <see cref="Clone"/> when an independent copy is required.
+    /// <para>
+    /// Every mutator is a no-op when handed the value the gradient already holds. That matters well beyond
+    /// tidiness: <see cref="Version"/> is the invalidation signal for the native snapshot, every
+    /// <see cref="GradientLutCache"/>, and every editor preview texture, so a control that re-sends its
+    /// current value would otherwise force all of them to rebuild.
+    /// </para>
+    /// </remarks>
+    /// <remarks>
+    /// Split across three files by concern: this one holds state and the mutation API,
+    /// GradientABCW.Serialization.cs holds validation and defaults, and GradientABCW.Hashing.cs holds
+    /// content comparison.
     /// </remarks>
     [Serializable]
-    public sealed class GradientABCW : ISerializationCallbackReceiver
+    public sealed partial class GradientABCW : ISerializationCallbackReceiver
     {
         public const int MinKeys = 2;
         public const int MaxKeys = 32;
@@ -59,10 +70,14 @@ namespace ABCodeworld.Gradients
             version++;
         }
 
-        /// <summary>Bumped on every mutation; caches key their state on this to know when to rebuild.</summary>
+        /// <summary>Bumped on every mutation that actually changes content; caches key their state on this to know when to rebuild.</summary>
         public int Version => version;
 
-        /// <summary>An unmanaged snapshot of this gradient for Burst evaluation, rebuilt only when <see cref="Version"/> changes.</summary>
+        /// <summary>
+        /// An unmanaged snapshot of this gradient for Burst evaluation, rebuilt only when
+        /// <see cref="Version"/> changes.
+        /// </summary>
+        /// <remarks>Rebuilds lazily and is therefore not safe to touch from multiple threads at once.</remarks>
         public ref readonly NativeGradient Native
         {
             get
@@ -96,7 +111,10 @@ namespace ABCodeworld.Gradients
             get => modulation;
             set
             {
-                modulation = value.Clamped();
+                var clamped = value.Clamped();
+                if (modulation.Equals(clamped))
+                    return;
+                modulation = clamped;
                 version++;
             }
         }
@@ -140,31 +158,58 @@ namespace ABCodeworld.Gradients
             return removed;
         }
 
-        /// <summary>Replaces the colour key at <paramref name="index"/> and re-sorts. Returns the key's new index.</summary>
+        /// <summary>
+        /// Replaces the colour key at <paramref name="index"/> and re-sorts. Returns the key's new index.
+        /// Writing back an identical key is a no-op and does not bump <see cref="Version"/>.
+        /// </summary>
         public int SetColorKey(int index, ColorKey key)
         {
-            int newIndex = KeyArray<ColorKey>.SetAndResort(colorKeys, index, key.WithTime(Mathf.Clamp01(key.time)));
+            var replacement = key.WithTime(Mathf.Clamp01(key.time));
+            var existing = colorKeys[index];
+            if (existing.time == replacement.time && existing.color == replacement.color)
+                return index;
+
+            int newIndex = KeyArray<ColorKey>.SetAndResort(colorKeys, index, replacement);
             version++;
             return newIndex;
         }
 
-        /// <summary>Replaces the alpha key at <paramref name="index"/> and re-sorts. Returns the key's new index.</summary>
+        /// <summary>
+        /// Replaces the alpha key at <paramref name="index"/> and re-sorts. Returns the key's new index.
+        /// Writing back an identical key is a no-op and does not bump <see cref="Version"/>.
+        /// </summary>
         public int SetAlphaKey(int index, AlphaKey key)
         {
-            int newIndex = KeyArray<AlphaKey>.SetAndResort(alphaKeys, index, key.WithTime(Mathf.Clamp01(key.time)));
+            var replacement = key.WithTime(Mathf.Clamp01(key.time));
+            var existing = alphaKeys[index];
+            if (existing.time == replacement.time && existing.alpha == replacement.alpha)
+                return index;
+
+            int newIndex = KeyArray<AlphaKey>.SetAndResort(alphaKeys, index, replacement);
             version++;
             return newIndex;
         }
 
-        /// <summary>Clamps a candidate time for the colour key at <paramref name="index"/> against its neighbours.</summary>
+        /// <summary>
+        /// Clamps a candidate time for the colour key at <paramref name="index"/> into the gap between the
+        /// keys bracketing it. The key may still be dragged past its neighbours into another gap; it just
+        /// cannot land exactly on another key's time.
+        /// </summary>
         public float ClampColorKeyTime(int index, float candidateTime) =>
-            KeyArray<ColorKey>.ClampTimeBetweenNeighbours(colorKeys, index, candidateTime, NeighbourClampEpsilon);
+            KeyArray<ColorKey>.ClampTimeIntoGap(colorKeys, index, candidateTime, NeighbourClampEpsilon);
 
-        /// <summary>Clamps a candidate time for the alpha key at <paramref name="index"/> against its neighbours.</summary>
+        /// <summary>
+        /// Clamps a candidate time for the alpha key at <paramref name="index"/> into the gap between the
+        /// keys bracketing it. See <see cref="ClampColorKeyTime"/> for the reordering caveat.
+        /// </summary>
         public float ClampAlphaKeyTime(int index, float candidateTime) =>
-            KeyArray<AlphaKey>.ClampTimeBetweenNeighbours(alphaKeys, index, candidateTime, NeighbourClampEpsilon);
+            KeyArray<AlphaKey>.ClampTimeIntoGap(alphaKeys, index, candidateTime, NeighbourClampEpsilon);
 
-        /// <summary>Replaces both key arrays, validating, sorting, truncating to <see cref="MaxKeys"/> and padding to <see cref="MinKeys"/>.</summary>
+        /// <summary>
+        /// Replaces both key arrays: validates, sorts, decimates evenly down to <see cref="MaxKeys"/> when
+        /// over-long, and pads out to <see cref="MinKeys"/> when short. Only genuinely empty input falls
+        /// back to the default black-to-white ramp.
+        /// </summary>
         public void SetKeys(ReadOnlySpan<ColorKey> colors, ReadOnlySpan<AlphaKey> alphas)
         {
             colorKeys = ValidateColorKeys(colors.ToArray());
@@ -206,127 +251,5 @@ namespace ABCodeworld.Gradients
             return new Color(c.x, c.y, c.z, c.w);
         }
 
-        /// <summary>Deterministic content hash covering keys, blend mode and modulation. Does not depend on <see cref="Version"/>.</summary>
-        public int ComputeContentHash()
-        {
-            unchecked
-            {
-                int h = 17;
-                h = h * 31 + colorKeys.Length;
-                for (int i = 0; i < colorKeys.Length; i++)
-                {
-                    var k = colorKeys[i];
-                    h = h * 31 + BitConverter.SingleToInt32Bits(k.time);
-                    h = h * 31 + BitConverter.SingleToInt32Bits(k.color.r);
-                    h = h * 31 + BitConverter.SingleToInt32Bits(k.color.g);
-                    h = h * 31 + BitConverter.SingleToInt32Bits(k.color.b);
-                }
-                h = h * 31 + alphaKeys.Length;
-                for (int i = 0; i < alphaKeys.Length; i++)
-                {
-                    var k = alphaKeys[i];
-                    h = h * 31 + BitConverter.SingleToInt32Bits(k.time);
-                    h = h * 31 + BitConverter.SingleToInt32Bits(k.alpha);
-                }
-                h = h * 31 + (int)blendMode;
-                h = h * 31 + modulation.bypass.GetHashCode();
-                h = h * 31 + modulation.reverse.GetHashCode();
-                h = h * 31 + BitConverter.SingleToInt32Bits(modulation.repeats);
-                h = h * 31 + (int)modulation.repeatMode;
-                h = h * 31 + BitConverter.SingleToInt32Bits(modulation.offset);
-                h = h * 31 + BitConverter.SingleToInt32Bits(modulation.hueShift);
-                h = h * 31 + BitConverter.SingleToInt32Bits(modulation.saturation);
-                h = h * 31 + BitConverter.SingleToInt32Bits(modulation.brightness);
-                h = h * 31 + BitConverter.SingleToInt32Bits(modulation.alpha);
-                return h;
-            }
-        }
-
-        public bool ContentEquals(GradientABCW other)
-        {
-            if (other is null)
-                return false;
-            if (blendMode != other.blendMode)
-                return false;
-            if (!ModulationEquals(modulation, other.modulation))
-                return false;
-            if (colorKeys.Length != other.colorKeys.Length || alphaKeys.Length != other.alphaKeys.Length)
-                return false;
-
-            for (int i = 0; i < colorKeys.Length; i++)
-            {
-                if (colorKeys[i].time != other.colorKeys[i].time || colorKeys[i].color != other.colorKeys[i].color)
-                    return false;
-            }
-            for (int i = 0; i < alphaKeys.Length; i++)
-            {
-                if (alphaKeys[i].time != other.alphaKeys[i].time || alphaKeys[i].alpha != other.alphaKeys[i].alpha)
-                    return false;
-            }
-            return true;
-        }
-
-        private static bool ModulationEquals(in GradientModulation a, in GradientModulation b) =>
-            a.bypass == b.bypass && a.reverse == b.reverse && a.repeats == b.repeats && a.repeatMode == b.repeatMode &&
-            a.offset == b.offset && a.hueShift == b.hueShift && a.saturation == b.saturation &&
-            a.brightness == b.brightness && a.alpha == b.alpha;
-
-        void ISerializationCallbackReceiver.OnBeforeSerialize() { }
-
-        void ISerializationCallbackReceiver.OnAfterDeserialize()
-        {
-            colorKeys = ValidateColorKeys(colorKeys);
-            alphaKeys = ValidateAlphaKeys(alphaKeys);
-            modulation = modulation.Clamped();
-            version++;
-        }
-
-        private static ColorKey[] ValidateColorKeys(ColorKey[] keys)
-        {
-            if (keys == null || keys.Length < MinKeys)
-                return DefaultColorKeys();
-
-            if (keys.Length > MaxKeys)
-            {
-                KeyArray<ColorKey>.SortInPlace(keys);
-                Array.Resize(ref keys, MaxKeys);
-            }
-
-            for (int i = 0; i < keys.Length; i++)
-                keys[i] = new ColorKey(keys[i].color, keys[i].time);
-
-            KeyArray<ColorKey>.SortInPlace(keys);
-            return keys;
-        }
-
-        private static AlphaKey[] ValidateAlphaKeys(AlphaKey[] keys)
-        {
-            if (keys == null || keys.Length < MinKeys)
-                return DefaultAlphaKeys();
-
-            if (keys.Length > MaxKeys)
-            {
-                KeyArray<AlphaKey>.SortInPlace(keys);
-                Array.Resize(ref keys, MaxKeys);
-            }
-
-            for (int i = 0; i < keys.Length; i++)
-                keys[i] = new AlphaKey(keys[i].alpha, keys[i].time);
-
-            KeyArray<AlphaKey>.SortInPlace(keys);
-            return keys;
-        }
-
-        private static ColorKey[] DefaultColorKeys() => new[]
-        {
-            new ColorKey(Color.black, 0f),
-            new ColorKey(Color.white, 1f),
-        };
-
-        private static AlphaKey[] DefaultAlphaKeys() => new[]
-        {
-            new AlphaKey(1f, 0f),
-            new AlphaKey(1f, 1f),
-        };
     }
 }

@@ -32,7 +32,7 @@ namespace ABCodeworld.Gradients.Tests.Runtime
             var g = GradientABCW.CreateDefault();
             var native = NativeGradient.From(g);
             using var result = new NativeArray<float4>(32, Allocator.TempJob);
-            GradientLut.ScheduleBake(in native, result, GradientLutOptions.Final).Complete();
+            GradientJobs.ScheduleBake(in native, result, GradientLutOptions.Final).Complete();
             Assert.That(result[0].x, Is.EqualTo(0f).Within(1e-5f));
         }
 

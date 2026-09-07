@@ -31,7 +31,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.Runtime
             var native = NativeGradient.From(g);
             using var result = new NativeArray<float4>(SampleCount, Allocator.Persistent);
 
-            Measure.Method(() => GradientLut.ScheduleBake(in native, result, GradientLutOptions.Final).Complete())
+            Measure.Method(() => GradientJobs.ScheduleBake(in native, result, GradientLutOptions.Final).Complete())
                 .WarmupCount(3)
                 .MeasurementCount(10)
                 .Run();

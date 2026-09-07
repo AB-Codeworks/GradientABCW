@@ -126,6 +126,16 @@ namespace ABCodeworld.Gradients.Editor
             modulationPanel.SetValueWithoutNotify(currentValue.Modulation);
         }
 
+        /// <summary>
+        /// Applies an in-place edit and announces it with a <see cref="GradientChangedEvent"/> only.
+        /// </summary>
+        /// <remarks>
+        /// This used to also raise a <c>ChangeEvent</c> carrying the same instance as both previous and
+        /// new value. Listeners that (reasonably) handle both events — the property drawer does — then ran
+        /// their write-through twice for one edit, serializing twice and leaving two undo records per
+        /// change. <c>ChangeEvent</c> now means what its name says: the field was pointed at a different
+        /// gradient instance. In-place edits are <see cref="GradientChangedEvent"/>.
+        /// </remarks>
         private void Mutate(Action<GradientABCW> mutation, GradientChangedEvent.ChangeKind kind)
         {
             if (currentValue == null)
@@ -137,10 +147,6 @@ namespace ABCodeworld.Gradients.Editor
             using var changedEvt = GradientChangedEvent.GetPooled(currentValue, kind);
             changedEvt.target = this;
             SendEvent(changedEvt);
-
-            using var valueEvt = ChangeEvent<GradientABCW>.GetPooled(currentValue, currentValue);
-            valueEvt.target = this;
-            SendEvent(valueEvt);
         }
 
         private void OpenPicker()

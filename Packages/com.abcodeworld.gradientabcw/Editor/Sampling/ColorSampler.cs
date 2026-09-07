@@ -97,79 +97,93 @@ namespace ABCodeworld.Gradients.Editor
 
         private static List<Color32> SelectCandidates(IColorSource source, Unity.Mathematics.Random rng)
         {
+            // The strategy is part of the seeded sequence: rng is drawn from before anything else so that
+            // the same seed keeps choosing the same strategy, which is what ColorSamplerTests pins.
             int strategy = rng.NextInt(0, 4);
-            var selected = new List<Color32>();
-            var processedHashes = new HashSet<int>();
             int targetCount = rng.NextInt(4, 9);
+
+            var selected = new List<Color32>();
+            var seenBuckets = new HashSet<int>();
 
             switch (strategy)
             {
-                case 0:
-                    for (int i = 0; i < 30 && selected.Count < targetCount; i++)
-                    {
-                        var c = source[rng.NextInt(0, source.Count)];
-                        if (processedHashes.Add(QuantizeHash(c, 15f)))
-                            selected.Add(c);
-                    }
-                    break;
-
-                case 1:
-                    var darkest = new Color32(255, 255, 255, 255);
-                    var brightest = new Color32(0, 0, 0, 255);
-                    float minLum = 1f, maxLum = 0f;
-                    for (int i = 0; i < source.Count; i++)
-                    {
-                        var c = source[i];
-                        float lum = Luminance(c);
-                        if (lum < minLum) { minLum = lum; darkest = c; }
-                        if (lum > maxLum) { maxLum = lum; brightest = c; }
-                    }
-                    selected.Add(darkest);
-                    selected.Add(brightest);
-                    for (int i = 0; i < 30 && selected.Count < targetCount; i++)
-                    {
-                        var c = source[rng.NextInt(0, source.Count)];
-                        if (processedHashes.Add(QuantizeHash(c, 15f)))
-                            selected.Add(c);
-                    }
-                    break;
-
-                case 2:
-                    int stride = Mathf.Max(1, source.Count / 30);
-                    for (int i = 0; i < source.Count && selected.Count < targetCount; i += stride)
-                    {
-                        var c = source[i];
-                        Color.RGBToHSV(c, out float h, out float s, out float v);
-                        if (v < 0.1f || s < 0.1f)
-                            continue;
-                        if (processedHashes.Add(Mathf.RoundToInt(h * 20f)))
-                            selected.Add(c);
-                    }
-                    if (selected.Count < 3)
-                    {
-                        for (int i = 0; i < 20 && selected.Count < targetCount; i++)
-                            selected.Add(source[rng.NextInt(0, source.Count)]);
-                    }
-                    break;
-
-                default:
-                    var seedColor = source[rng.NextInt(0, source.Count)];
-                    selected.Add(seedColor);
-                    int stride2 = Mathf.Max(1, source.Count / 40);
-                    for (int i = 0; i < source.Count && selected.Count < targetCount; i += stride2)
-                    {
-                        var c = source[i];
-                        int hash = QuantizeHash(c, 20f);
-                        float sim = ColorSimilarity(seedColor, c);
-                        bool takeNear = i % 2 == 0 && sim < 0.3f;
-                        bool takeFar = i % 2 == 1 && sim > 0.5f;
-                        if ((takeNear || takeFar) && processedHashes.Add(hash))
-                            selected.Add(c);
-                    }
-                    break;
+                case 0: SelectRandomDistinct(source, ref rng, targetCount, selected, seenBuckets); break;
+                case 1: SelectLuminanceExtremes(source, ref rng, targetCount, selected, seenBuckets); break;
+                case 2: SelectByHueSpread(source, ref rng, targetCount, selected, seenBuckets); break;
+                default: SelectAroundASeedColour(source, ref rng, targetCount, selected, seenBuckets); break;
             }
 
             return selected;
+        }
+
+        /// <summary>Random picks, rejecting colours that quantize into an already-used bucket.</summary>
+        private static void SelectRandomDistinct(IColorSource source, ref Unity.Mathematics.Random rng, int targetCount, List<Color32> selected, HashSet<int> seenBuckets)
+        {
+            for (int i = 0; i < 30 && selected.Count < targetCount; i++)
+            {
+                var c = source[rng.NextInt(0, source.Count)];
+                if (seenBuckets.Add(QuantizeHash(c, 15f)))
+                    selected.Add(c);
+            }
+        }
+
+        /// <summary>Anchors on the darkest and brightest colours, then fills in randomly.</summary>
+        private static void SelectLuminanceExtremes(IColorSource source, ref Unity.Mathematics.Random rng, int targetCount, List<Color32> selected, HashSet<int> seenBuckets)
+        {
+            var darkest = new Color32(255, 255, 255, 255);
+            var brightest = new Color32(0, 0, 0, 255);
+            float minLum = 1f, maxLum = 0f;
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                var c = source[i];
+                float lum = Luminance(c);
+                if (lum < minLum) { minLum = lum; darkest = c; }
+                if (lum > maxLum) { maxLum = lum; brightest = c; }
+            }
+
+            selected.Add(darkest);
+            selected.Add(brightest);
+            SelectRandomDistinct(source, ref rng, targetCount, selected, seenBuckets);
+        }
+
+        /// <summary>Strides the source taking one colour per hue bucket, skipping dark and washed-out ones.</summary>
+        private static void SelectByHueSpread(IColorSource source, ref Unity.Mathematics.Random rng, int targetCount, List<Color32> selected, HashSet<int> seenBuckets)
+        {
+            int stride = Mathf.Max(1, source.Count / 30);
+            for (int i = 0; i < source.Count && selected.Count < targetCount; i += stride)
+            {
+                var c = source[i];
+                Color.RGBToHSV(c, out float h, out float s, out float v);
+                if (v < 0.1f || s < 0.1f)
+                    continue;
+                if (seenBuckets.Add(Mathf.RoundToInt(h * 20f)))
+                    selected.Add(c);
+            }
+
+            if (selected.Count < 3)
+            {
+                for (int i = 0; i < 20 && selected.Count < targetCount; i++)
+                    selected.Add(source[rng.NextInt(0, source.Count)]);
+            }
+        }
+
+        /// <summary>Picks a seed colour, then alternates between colours close to it and far from it.</summary>
+        private static void SelectAroundASeedColour(IColorSource source, ref Unity.Mathematics.Random rng, int targetCount, List<Color32> selected, HashSet<int> seenBuckets)
+        {
+            var seedColor = source[rng.NextInt(0, source.Count)];
+            selected.Add(seedColor);
+
+            int stride = Mathf.Max(1, source.Count / 40);
+            for (int i = 0; i < source.Count && selected.Count < targetCount; i += stride)
+            {
+                var c = source[i];
+                float similarity = ColorSimilarity(seedColor, c);
+                bool takeNear = i % 2 == 0 && similarity < 0.3f;
+                bool takeFar = i % 2 == 1 && similarity > 0.5f;
+                if ((takeNear || takeFar) && seenBuckets.Add(QuantizeHash(c, 20f)))
+                    selected.Add(c);
+            }
         }
 
         private static void SortCandidates(List<Color32> selected, Unity.Mathematics.Random rng)
