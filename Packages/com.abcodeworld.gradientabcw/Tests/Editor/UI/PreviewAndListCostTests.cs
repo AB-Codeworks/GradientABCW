@@ -29,7 +29,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             field.value = TestGradients.Rainbow7();
             simulate.FrameUpdate();
 
-            var preview = field.Q<GradientPreviewElement>();
+            var preview = field.Q<GradientPreviewElement>(GradientABCWField.FinalPreviewName);
             int bakesAfterFirstShow = preview.BakeCount;
             Assume.That(bakesAfterFirstShow, Is.GreaterThan(0));
 
@@ -60,7 +60,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
                 field.value = TestGradients.Rainbow7();
                 simulate.FrameUpdate();
 
-                var preview = field.Q<GradientPreviewElement>();
+                var preview = field.Q<GradientPreviewElement>(GradientABCWField.FinalPreviewName);
                 Assume.That(preview.BakeCount, Is.GreaterThan(0));
 
                 // The gradient strip is the second Image; the first is the checkerboard behind it.

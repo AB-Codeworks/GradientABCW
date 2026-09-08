@@ -120,9 +120,12 @@ namespace ABCodeworld.Gradients.Editor
             tile.AddToClassList("abcw-library__tile");
             tile.Add(new Label(asset.name) { style = { unityFontStyleAndWeight = FontStyle.Bold } });
 
+            // Final, not Base: a saved asset serializes its modulation along with its keys, so a tile drawn
+            // from the base answers "what are this gradient's keys" when what a library is asked is "what
+            // is this gradient". Matches the drawer, which also leads with the modulated result.
             var preview = new GradientPreviewElement
             {
-                Mode = GradientPreviewElement.PreviewMode.Base,
+                Mode = GradientPreviewElement.PreviewMode.Final,
                 Gradient = asset.Gradient,
                 style = { height = 16 },
             };

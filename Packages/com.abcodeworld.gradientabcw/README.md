@@ -61,9 +61,16 @@ sharing a gradient across scenes and assets.
 
 Add a `[SerializeField] private GradientABCW gradient;` field to a `MonoBehaviour` or
 `ScriptableObject` and it renders as a `GradientABCWField` in the Inspector automatically — a
-clickable base preview, an **Edit** button that opens the picker, a quick-actions menu (sample
-from the selected mesh, flip keys, distribute keys, reset), and a collapsible **Modulation**
-section with its own final preview.
+clickable preview of the **final** gradient, an **Edit** button that opens the picker, a
+quick-actions menu (sample from the selected mesh, flip keys, distribute keys, reset), and a
+collapsible **Modulation** section holding the modulation controls and the **Unmodulated Base**
+gradient.
+
+The top preview shows the gradient as it actually evaluates, modulation included, because the
+Modulation section is collapsed by default — leading with the base would mean the one strip most
+users ever see is not what the object renders. When modulation is doing something, the collapsed
+section reads **Modulation — active**, so an authored look is distinguishable from a modulated one
+at a glance.
 
 The property drawer only implements `CreatePropertyGUI` (UI Toolkit), so it renders correctly in
 UI Toolkit–based inspectors. An inspector still using `OnInspectorGUI`/`EditorGUILayout` (IMGUI)

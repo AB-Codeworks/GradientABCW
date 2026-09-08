@@ -7,10 +7,19 @@ using UnityEngine.UIElements;
 namespace ABCodeworld.Gradients.Editor
 {
     /// <summary>
-    /// The inspector control for a <see cref="GradientABCW"/>: a clickable base preview, an Edit button
-    /// that opens the picker, a quick-actions menu, and a collapsible modulation section with its own
-    /// final preview. Pure UI Toolkit — no IMGUI anywhere in the control.
+    /// The inspector control for a <see cref="GradientABCW"/>: a clickable preview of the final gradient,
+    /// an Edit button that opens the picker, a quick-actions menu, and a collapsible modulation section
+    /// holding the modulation controls and the unmodulated base gradient. Pure UI Toolkit — no IMGUI
+    /// anywhere in the control.
     /// </summary>
+    /// <remarks>
+    /// The top preview deliberately shows the <em>final</em>, modulated gradient rather than the base.
+    /// The modulation foldout is collapsed by default, so leading with the base meant the one thing most
+    /// users ever saw was a gradient that is not what the object renders — a hue shift or a repeat count
+    /// was invisible until you knew to expand a section you had no reason to suspect. The base is still
+    /// available, at the end of the foldout, where it is useful for comparison while you are actually
+    /// editing modulation.
+    /// </remarks>
     public sealed class GradientABCWField : BindableElement, INotifyValueChanged<GradientABCW>
     {
         /// <summary>
@@ -26,6 +35,27 @@ namespace ABCodeworld.Gradients.Editor
         /// the field needing to know about them.
         /// </summary>
         public event Action<GradientABCW, GradientPickerSession> PickerOpening;
+
+        /// <summary>
+        /// Element names for the two preview strips.
+        /// </summary>
+        /// <remarks>
+        /// Named rather than found by position. Tests used to reach these with First()/Last() over the
+        /// element tree, which meant swapping their order silently inverted what those tests asserted
+        /// while leaving them green.
+        /// </remarks>
+        internal const string FinalPreviewName = "final-preview";
+
+        internal const string BasePreviewName = "base-preview";
+
+        /// <summary>Foldout heading when modulation is at identity or bypassed.</summary>
+        internal const string ModulationLabel = "Modulation";
+
+        /// <summary>
+        /// Foldout heading when modulation actually changes the output, so a collapsed foldout still
+        /// says why the gradient above it looks the way it does.
+        /// </summary>
+        internal const string ModulationActiveLabel = "Modulation — active";
 
         private GradientABCW currentValue;
 
@@ -70,15 +100,16 @@ namespace ABCodeworld.Gradients.Editor
             var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
             header.Add(new Label(label) { style = { minWidth = 120 } });
 
-            basePreview = new GradientPreviewElement
+            finalPreview = new GradientPreviewElement
             {
-                Mode = GradientPreviewElement.PreviewMode.Base,
+                name = FinalPreviewName,
+                Mode = GradientPreviewElement.PreviewMode.Final,
                 Clickable = true,
-                tooltip = "Base gradient (ignores modulation). Click to open the picker.",
+                tooltip = "Final gradient, including modulation. Click to open the picker.",
                 style = { flexGrow = 1, height = 20, marginRight = 4 },
             };
-            basePreview.Clicked += OpenPicker;
-            header.Add(basePreview);
+            finalPreview.Clicked += OpenPicker;
+            header.Add(finalPreview);
 
             var editButton = new Button(OpenPicker) { text = "Edit" };
             header.Add(editButton);
@@ -95,7 +126,7 @@ namespace ABCodeworld.Gradients.Editor
 
             Add(header);
 
-            modulationFoldout = new Foldout { text = "Modulation", value = false, viewDataKey = "abcw-modulation-foldout" };
+            modulationFoldout = new Foldout { text = ModulationLabel, value = false, viewDataKey = "abcw-modulation-foldout" };
             Add(modulationFoldout);
 
             blendModeField = new EnumField("Blend Mode", BlendMode.Smooth);
@@ -108,9 +139,15 @@ namespace ABCodeworld.Gradients.Editor
                 Mutate(g => g.Modulation = evt.newValue, GradientChangedEvent.ChangeKind.Modulation));
             modulationFoldout.Add(modulationPanel);
 
-            modulationFoldout.Add(new Label("Final Preview") { style = { marginTop = 4 } });
-            finalPreview = new GradientPreviewElement { Mode = GradientPreviewElement.PreviewMode.Final, style = { height = 20 } };
-            modulationFoldout.Add(finalPreview);
+            modulationFoldout.Add(new Label("Unmodulated Base") { style = { marginTop = 4 } });
+            basePreview = new GradientPreviewElement
+            {
+                name = BasePreviewName,
+                Mode = GradientPreviewElement.PreviewMode.Base,
+                tooltip = "Base gradient before modulation. Shown for comparison; the strip at the top is what this gradient actually evaluates to.",
+                style = { height = 20 },
+            };
+            modulationFoldout.Add(basePreview);
 
             SetValueWithoutNotify(GradientABCW.CreateDefault());
         }
@@ -124,6 +161,10 @@ namespace ABCodeworld.Gradients.Editor
 
             blendModeField.SetValueWithoutNotify(currentValue.BlendMode);
             modulationPanel.SetValueWithoutNotify(currentValue.Modulation);
+
+            // IsEffective is exactly "modulation changes the output" — not bypassed and not at identity —
+            // so the heading tracks the bypass toggle and a slider being returned to its default alike.
+            modulationFoldout.text = currentValue.Modulation.IsEffective ? ModulationActiveLabel : ModulationLabel;
         }
 
         /// <summary>

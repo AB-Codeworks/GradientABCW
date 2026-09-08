@@ -30,11 +30,13 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             simulate.FrameUpdate();
         }
 
-        private GradientPreviewElement BasePreview() =>
-            field.Query<GradientPreviewElement>().ToList().First();
-
+        // By name, not by position. These were First()/Last() over the element tree, so when the two
+        // previews swapped places every assertion below silently inverted and stayed green.
         private GradientPreviewElement FinalPreview() =>
-            field.Query<GradientPreviewElement>().ToList().Last();
+            field.Q<GradientPreviewElement>(GradientABCWField.FinalPreviewName);
+
+        private GradientPreviewElement BasePreview() =>
+            field.Q<GradientPreviewElement>(GradientABCWField.BasePreviewName);
 
         private static void ExecuteMenuAction(ToolbarMenu menu, string actionName)
         {
@@ -90,7 +92,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             field.value = g;
             simulate.FrameUpdate();
 
-            var preview = BasePreview();
+            var preview = FinalPreview();
             int bakesAfterFirstShow = preview.BakeCount;
             Assume.That(bakesAfterFirstShow, Is.GreaterThan(0), "the visible preview should have baked at least once");
 
@@ -106,13 +108,13 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         }
 
         [Test]
-        public void EditingWhileTheModulationFoldoutIsCollapsed_DoesNotBakeTheFinalPreview()
+        public void EditingWhileTheModulationFoldoutIsCollapsed_DoesNotBakeTheUnmodulatedBasePreview()
         {
             var g = TestGradients.Rainbow7();
             field.value = g;
             simulate.FrameUpdate();
 
-            var final = FinalPreview();
+            var unmodulatedBase = BasePreview();
             Assume.That(field.Q<Foldout>().value, Is.False, "the modulation foldout starts collapsed");
 
             for (int i = 0; i < 5; i++)
@@ -123,23 +125,24 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
 
             // A collapsed Foldout hides its children by setting display:none on a parent, which leaves the
             // preview's own resolved width at zero. That used to fall through to a 256px default, so the
-            // hidden final preview re-baked on every edit.
-            Assert.That(final.BakeCount, Is.EqualTo(0));
+            // hidden preview re-baked on every edit. The base preview is the hidden one now that the final
+            // preview leads the control.
+            Assert.That(unmodulatedBase.BakeCount, Is.EqualTo(0));
         }
 
         [Test]
-        public void ExpandingTheModulationFoldout_BakesTheFinalPreviewOnce()
+        public void ExpandingTheModulationFoldout_BakesTheUnmodulatedBasePreviewOnce()
         {
             field.value = TestGradients.Rainbow7();
             simulate.FrameUpdate();
 
-            var final = FinalPreview();
-            Assume.That(final.BakeCount, Is.EqualTo(0));
+            var unmodulatedBase = BasePreview();
+            Assume.That(unmodulatedBase.BakeCount, Is.EqualTo(0));
 
             field.Q<Foldout>().value = true;
             simulate.FrameUpdate();
 
-            Assert.That(final.BakeCount, Is.EqualTo(1));
+            Assert.That(unmodulatedBase.BakeCount, Is.EqualTo(1));
         }
     }
 }

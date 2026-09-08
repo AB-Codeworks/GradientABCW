@@ -38,15 +38,19 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         }
 
         [Test]
-        public void SettingValue_RefreshesBasePreview()
+        public void SettingValue_RefreshesBothPreviews()
         {
             var g = TestGradients.Rainbow7();
             field.value = g;
             simulate.FrameUpdate();
 
-            var preview = field.Q<GradientPreviewElement>();
-            Assert.That(preview, Is.Not.Null);
-            Assert.That(preview.Gradient, Is.SameAs(g));
+            var finalPreview = field.Q<GradientPreviewElement>(GradientABCWField.FinalPreviewName);
+            var basePreview = field.Q<GradientPreviewElement>(GradientABCWField.BasePreviewName);
+
+            Assert.That(finalPreview, Is.Not.Null);
+            Assert.That(basePreview, Is.Not.Null);
+            Assert.That(finalPreview.Gradient, Is.SameAs(g));
+            Assert.That(basePreview.Gradient, Is.SameAs(g));
         }
 
         [Test]
