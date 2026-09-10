@@ -34,21 +34,19 @@ namespace ABCodeworld.Gradients.Editor
 
             field.PickerOpening += (_, session) =>
             {
-                Undo.IncrementCurrentGroup();
-                Undo.SetCurrentGroupName("Edit Gradient");
-                int group = Undo.GetCurrentGroup();
+                var undo = UndoGroupScope.Begin("Edit Gradient");
 
                 var innerAccepted = session.Accepted;
                 session.Accepted = g =>
                 {
                     innerAccepted?.Invoke(g);
-                    Undo.CollapseUndoOperations(group);
+                    undo.Collapse();
                 };
 
                 var innerCancelled = session.Cancelled;
                 session.Cancelled = () =>
                 {
-                    Undo.RevertAllDownToGroup(group);
+                    undo.RevertDownTo();
                     field.SetValueWithoutNotify((GradientABCW)property.boxedValue);
                     innerCancelled?.Invoke();
                 };

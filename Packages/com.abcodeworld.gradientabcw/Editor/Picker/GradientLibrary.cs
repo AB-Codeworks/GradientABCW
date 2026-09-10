@@ -18,32 +18,17 @@ namespace ABCodeworld.Gradients.Editor
     {
         public const string DefaultFolder = "Assets/Gradients";
 
-        /// <summary>Normalizes a user-typed folder path, or returns null when it could never be valid.</summary>
-        public static string NormalizeFolder(string folder)
-        {
-            string trimmed = folder?.Trim().Replace("\\", "/").TrimEnd('/');
-            if (string.IsNullOrEmpty(trimmed))
-                return null;
+        // Folder handling lives in AssetFolders, shared with the 3D library. These stay as forwarders so
+        // that callers — and the tests that already cover them — keep one entry point per library.
 
-            return trimmed == "Assets" || trimmed.StartsWith("Assets/", StringComparison.Ordinal) ? trimmed : null;
-        }
+        /// <inheritdoc cref="AssetFolders.Normalize"/>
+        public static string NormalizeFolder(string folder) => AssetFolders.Normalize(folder);
 
-        public static bool Exists(string folder) =>
-            !string.IsNullOrEmpty(folder) && AssetDatabase.IsValidFolder(folder);
+        /// <inheritdoc cref="AssetFolders.Exists"/>
+        public static bool Exists(string folder) => AssetFolders.Exists(folder);
 
-        /// <summary>Creates <paramref name="folder"/> and any missing parents.</summary>
-        public static void CreateFolder(string folder)
-        {
-            var parts = folder.Split('/');
-            string current = parts[0];
-            for (int i = 1; i < parts.Length; i++)
-            {
-                string next = current + "/" + parts[i];
-                if (!AssetDatabase.IsValidFolder(next))
-                    AssetDatabase.CreateFolder(current, parts[i]);
-                current = next;
-            }
-        }
+        /// <inheritdoc cref="AssetFolders.Create"/>
+        public static void CreateFolder(string folder) => AssetFolders.Create(folder);
 
         /// <summary>Every gradient asset directly under <paramref name="folder"/>, ordered by name.</summary>
         public static List<GradientABCWAsset> Load(string folder)

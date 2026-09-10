@@ -10,10 +10,6 @@ namespace ABCodeworld.Gradients
     /// </summary>
     public static unsafe class GradientMath
     {
-        private const int Clamp = 0;
-        private const int Wrap = 1;
-        private const int Mirror = 2;
-
         public static float4 Evaluate(in NativeGradient g, float t)
         {
             t = math.saturate(t);
@@ -32,46 +28,13 @@ namespace ABCodeworld.Gradients
             return g.stepped != 0 ? SampleStepped(in g, t) : SampleSmooth(in g, t);
         }
 
-        internal static float TransformT(in NativeGradient g, float t)
-        {
-            if (t >= 1f) t = 1f - 1e-7f;
-
-            float td = t + g.modOffset;
-
-            float r = g.modRepeats <= 0f ? 1f : g.modRepeats;
-            bool repeating = r != 1f;
-            bool periodic = g.modRepeatMode == Wrap || g.modRepeatMode == Mirror;
-
-            if (!repeating && !periodic && g.modRepeatMode == Clamp)
-                td = math.saturate(td);
-            else
-                td -= math.floor(td);
-
-            if (repeating || periodic)
-            {
-                float scaled = td * r;
-                if (g.modRepeatMode == Clamp)
-                {
-                    td = math.min(scaled, 1f);
-                }
-                else if (g.modRepeatMode == Wrap)
-                {
-                    td = scaled - math.floor(scaled);
-                }
-                else // Mirror
-                {
-                    int cycle = (int)math.floor(scaled);
-                    float f = scaled - cycle;
-                    bool odd = (cycle & 1) == 1;
-                    td = odd ? (1f - f) : f;
-                }
-            }
-
-            if (g.modReverse != 0)
-                td = 1f - td;
-
-            return math.saturate(td);
-        }
+        /// <summary>
+        /// Maps <paramref name="t"/> through this gradient's offset, repeat count, repeat mode and
+        /// reverse. The transform itself lives in <see cref="GradientDomain"/>, shared with the 3D core,
+        /// which applies the very same mapping once per axis.
+        /// </summary>
+        internal static float TransformT(in NativeGradient g, float t) =>
+            GradientDomain.TransformT(t, g.modOffset, g.modRepeats, g.modRepeatMode, g.modReverse);
 
         private static float4 SampleSmooth(in NativeGradient g, float t)
         {
@@ -214,40 +177,12 @@ namespace ABCodeworld.Gradients
             return g.alphaValues[lo];
         }
 
-        private static float4 ApplyHsba(in NativeGradient g, float4 c)
-        {
-            float3 rgb = c.xyz;
-
-            // Only hue and saturation need HSV. Brightness and alpha are plain lerps in RGB, so dimming or
-            // fading a gradient — a common case on its own — no longer pays for a full round trip per
-            // sample. When hue and saturation are both neutral the round trip was returning its input.
-            if (g.modNeedsHsv != 0)
-            {
-                float3 hsv = ColorSpaceMath.RgbToHsv(rgb);
-
-                float h = hsv.x + g.modHueShift;
-                h -= math.floor(h);
-
-                float s = g.modSaturation >= 0f ? math.lerp(hsv.y, 1f, g.modSaturation) : math.lerp(hsv.y, 0f, -g.modSaturation);
-                s = math.saturate(s);
-
-                rgb = ColorSpaceMath.HsvToRgb(new float3(h, s, hsv.z));
-            }
-
-            float a = c.w;
-
-            if (math.abs(g.modBrightness) > 1e-6f)
-            {
-                rgb = g.modBrightness > 0f
-                    ? math.lerp(rgb, new float3(1f), math.saturate(g.modBrightness))
-                    : math.lerp(rgb, float3.zero, math.saturate(-g.modBrightness));
-            }
-
-            if (g.modAlpha > 0f) a = math.lerp(a, 1f, math.saturate(g.modAlpha));
-            else if (g.modAlpha < 0f) a = math.lerp(a, 0f, math.saturate(-g.modAlpha));
-
-            return new float4(rgb, math.saturate(a));
-        }
+        /// <summary>
+        /// Applies this gradient's hue, saturation, brightness and alpha adjustment. The adjustment itself
+        /// lives in <see cref="GradientDomain"/>, shared with the 3D core.
+        /// </summary>
+        private static float4 ApplyHsba(in NativeGradient g, float4 c) =>
+            GradientDomain.ApplyHsba(c, g.modNeedsHsv, g.modHueShift, g.modSaturation, g.modBrightness, g.modAlpha);
 
     }
 }
