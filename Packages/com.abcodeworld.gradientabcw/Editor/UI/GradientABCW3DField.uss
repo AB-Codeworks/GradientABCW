@@ -1,0 +1,19 @@
+/* Cube-specific rules for the 3D inspector field and picker. Pairs with GradientABCWField.uss, which
+   already supplies .abcw-gradient-preview and its clickable variant; only what a cube adds is here. */
+
+.abcw-cube-strip {
+    flex-direction: row;
+    flex-shrink: 0;
+}
+
+.abcw-cube-preview {
+    margin-right: 3px;
+}
+
+.abcw-cube-strip > .abcw-cube-preview:last-child {
+    margin-right: 0;
+}
+
+.abcw-falloff-row--disabled {
+    opacity: 0.5;
+}
