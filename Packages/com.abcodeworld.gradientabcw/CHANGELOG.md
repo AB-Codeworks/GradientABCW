@@ -2,6 +2,53 @@
 
 All notable changes to this package are documented in this file.
 
+## [2.1.0]
+
+### Added
+
+- **3D gradients.** `GradientABCW3D` holds up to 64 colour keys and 64 alpha keys positioned
+  anywhere inside a unit cube, with its own property drawer, picker window and asset type. It shares
+  the 1D gradient's modulation, colour maths, LUT options and editor plumbing; what it could not
+  share is interpolation, because the 1D core sorts keys by time and lerps between the pair that
+  brackets the sample, and points in a cube have no such order.
+  - `BlendMode.Smooth` is inverse-distance weighting over every key, sharpened by a new
+    `FalloffPower` on the gradient (1 to 8, default 2). `BlendMode.Stepped` gives each key its own
+    Voronoi cell. Two keys may share a position, exactly as two 1D keys may share a time: they
+    average away from the shared point, and the lower index wins at it.
+  - `GradientLut3D` bakes a flat `Color32[]` of `size³` cells, indexed x-fastest so it uploads to a
+    `Texture3D` with no reshuffling. The default 32 is 128 KB; granularity comes from filtering
+    rather than resolution, through `SampleTrilinear` on the CPU or the hardware's own filtering on
+    the GPU. `GradientLut3DCache`, `GradientJobs3D` and `GradientTexture3DUtility` mirror their 1D
+    counterparts.
+  - The inspector swatch is four 32×32 perspective renders of the gradient as a solid cube, from
+    directions chosen so all six faces appear. A cube shows at most three faces from any one
+    viewpoint, so a single render would always be hiding part of the gradient.
+  - The picker replaces the gradient bar with a drag-rotatable wireframe cube showing each key as a
+    dot in its own colour, plus a toggle to see the same cube rendered solid at the same rotation.
+    There is no key dragging in the cube — a pointer gives two coordinates and a key needs three —
+    so the column that held the draggable palette swatches holds mode buttons and an Add Key button
+    instead, and key rows carry `(x, y, z)` where the 1D rows carry `t`.
+  - Mesh sampling reconstructs a mesh's colour volume: each vertex's position inside the mesh bounds
+    becomes a key position and its colour becomes the key. Texture sampling reuses the 1D palette
+    selection wholesale and scatters the result through the cube from the existing seed.
+  - Domain modulation applies to all three axes at once, which follows from the requirement but is
+    worth stating: `repeats = 2` tiles the cube 2×2×2 rather than twice, and `reverse` mirrors every
+    axis, reflecting the gradient rather than rotating it.
+
+### Changed
+
+- `GradientMath.TransformT` and its colour adjustment moved verbatim into `GradientDomain`, shared
+  with the 3D core, which applies the same per-axis transform to x, y and z. Both are marked
+  `AggressiveInlining`, because they were a private and an internal method of their caller's own
+  class before and the package has already measured a 7% regression from a helper the JIT declined
+  to inline. Evaluation output is unchanged.
+- `GradientLibrary`'s folder handling moved into `AssetFolders`, the property drawer's undo grouping
+  into `UndoGroupScope`, and the picker's window centring into `EditorWindowPlacement`, all shared
+  with their 3D counterparts. `GradientAssetWatcher` needed no changes — it was already
+  type-agnostic.
+- Project Settings gains a **Default 3D Library Folder**, separate from the 1D one, so the two kinds
+  of gradient asset need not share a directory.
+
 ## [2.0.0]
 
 A correctness, performance and structure pass over 1.0.0. Evaluation output is unchanged except
