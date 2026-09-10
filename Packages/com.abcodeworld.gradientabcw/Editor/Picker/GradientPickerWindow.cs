@@ -35,7 +35,7 @@ namespace ABCodeworld.Gradients.Editor
             var window = CreateInstance<GradientPickerWindow>();
             window.titleContent = new GUIContent(title);
             window.minSize = new Vector2(780, 540);
-            CenterOnMainWindow(window, 820, 640);
+            EditorWindowPlacement.CenterOnMainWindow(window, 820, 640);
             window.BeginSession(initial, session);
             window.ShowUtility();
             window.Focus();
@@ -221,15 +221,6 @@ namespace ABCodeworld.Gradients.Editor
                 endingSession?.Accepted?.Invoke(finalGradient);
             else
                 endingSession?.Cancelled?.Invoke();
-        }
-
-        private static void CenterOnMainWindow(EditorWindow window, int width, int height)
-        {
-            var main = EditorGUIUtility.GetMainWindowPosition();
-            window.position = new Rect(
-                main.x + (main.width - width) * 0.5f,
-                main.y + (main.height - height) * 0.5f,
-                width, height);
         }
     }
 }

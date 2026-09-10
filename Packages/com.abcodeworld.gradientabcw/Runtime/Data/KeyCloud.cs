@@ -94,7 +94,7 @@ namespace ABCodeworld.Gradients
             }
 
             var sites = BuildLattice(m);
-            var chosen = SelectSpreadOut(sites, count);
+            var chosen = PointSpread.SelectSpreadOut(sites, count);
             for (int i = 0; i < count; i++)
                 keys[i] = keys[i].WithPosition(sites[chosen[i]]);
         }
@@ -165,70 +165,12 @@ namespace ABCodeworld.Gradients
             for (int i = 0; i < keys.Length; i++)
                 positions[i] = keys[i].Position;
 
-            var chosen = SelectSpreadOut(positions, maxCount);
+            var chosen = PointSpread.SelectSpreadOut(positions, maxCount);
 
             var reduced = new TKey[maxCount];
             for (int i = 0; i < maxCount; i++)
                 reduced[i] = keys[chosen[i]];
             return reduced;
-        }
-
-        /// <summary>
-        /// Picks <paramref name="take"/> of <paramref name="points"/> by farthest-point selection: start
-        /// at index 0, then repeatedly take whichever unused point is furthest from everything taken so
-        /// far, breaking ties towards the lower index.
-        /// </summary>
-        /// <remarks>
-        /// Runs in O(take * points.Length) by carrying each candidate's distance to the nearest chosen
-        /// point forward rather than recomputing it, which at this package's key counts is a few thousand
-        /// operations at worst. Fully deterministic, which matters because both callers feed serialized
-        /// data.
-        /// </remarks>
-        private static int[] SelectSpreadOut(Vector3[] points, int take)
-        {
-            // Guards the scan below, which has no unused point to hand back once every one is taken.
-            // Neither caller can reach this, but the failure would be a silently duplicated index.
-            if (take > points.Length)
-                take = points.Length;
-
-            var nearestSq = new float[points.Length];
-            for (int i = 0; i < points.Length; i++)
-                nearestSq[i] = float.PositiveInfinity;
-
-            var chosen = new int[take];
-            int pick = 0;
-
-            for (int k = 0; k < take; k++)
-            {
-                if (k > 0)
-                {
-                    // Used points carry -1, and the running best starts there, so they can never win.
-                    float best = -1f;
-                    pick = 0;
-                    for (int i = 0; i < points.Length; i++)
-                    {
-                        if (nearestSq[i] > best)
-                        {
-                            best = nearestSq[i];
-                            pick = i;
-                        }
-                    }
-                }
-
-                chosen[k] = pick;
-                var taken = points[pick];
-                for (int i = 0; i < points.Length; i++)
-                {
-                    if (nearestSq[i] < 0f)
-                        continue;
-                    float d = (points[i] - taken).sqrMagnitude;
-                    if (d < nearestSq[i])
-                        nearestSq[i] = d;
-                }
-                nearestSq[pick] = -1f;
-            }
-
-            return chosen;
         }
     }
 }

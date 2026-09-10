@@ -94,6 +94,8 @@ namespace ABCodeworld.Gradients.Editor
             header.Add(new Button(OpenPicker) { name = "edit", text = "Edit", tooltip = "Open the 3D gradient picker." });
 
             var menu = new ToolbarMenu { name = "actions", text = "⋯" };
+            menu.menu.AppendAction("Sample from Selected Mesh", _ => SampleFromMesh());
+            menu.menu.AppendSeparator();
             menu.menu.AppendAction("Flip Keys", _ => Mutate(g => g.FlipKeys(), Gradient3DChangedEvent.ChangeKind.Keys));
             menu.menu.AppendAction("Distribute Colour Keys", _ => Mutate(g => g.DistributeColorKeysEvenly(), Gradient3DChangedEvent.ChangeKind.Keys));
             menu.menu.AppendAction("Distribute Alpha Keys", _ => Mutate(g => g.DistributeAlphaKeysEvenly(), Gradient3DChangedEvent.ChangeKind.Keys));
@@ -176,6 +178,28 @@ namespace ABCodeworld.Gradients.Editor
             using var changedEvt = Gradient3DChangedEvent.GetPooled(currentValue, kind);
             changedEvt.target = this;
             SendEvent(changedEvt);
+        }
+
+        /// <summary>
+        /// Rebuilds the gradient from the selected mesh's coloured vertices, each vertex's position in the
+        /// mesh's bounds becoming a key position.
+        /// </summary>
+        private void SampleFromMesh()
+        {
+            if (!MeshSelectionUtility.TryGetSelectedMesh(out var mesh, out string error))
+            {
+                EditorUtility.DisplayDialog("Sample From Mesh", error, "OK");
+                return;
+            }
+
+            uint seed = unchecked((uint)Environment.TickCount) | 1u;
+            if (!ColorSampler3D.TrySampleMesh(mesh, ColorSampler3D.DefaultKeyCount, seed, out var sampled, out string sampleError))
+            {
+                EditorUtility.DisplayDialog("Sample From Mesh", sampleError, "OK");
+                return;
+            }
+
+            value = sampled;
         }
 
         private void OpenPicker()

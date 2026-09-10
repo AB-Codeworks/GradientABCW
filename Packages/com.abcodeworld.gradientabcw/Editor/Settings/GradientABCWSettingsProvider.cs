@@ -33,6 +33,24 @@ namespace ABCodeworld.Gradients.Editor
                     browseRow.Add(resetButton);
                     rootElement.Add(browseRow);
 
+                    var folder3DField = new TextField("Default 3D Library Folder")
+                    {
+                        value = settings.Default3DLibraryFolder,
+                        style = { marginTop = 8 },
+                    };
+                    folder3DField.RegisterValueChangedCallback(evt => settings.Default3DLibraryFolder = evt.newValue);
+                    rootElement.Add(folder3DField);
+
+                    var browse3DRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 4 } };
+                    browse3DRow.Add(new Button(() => BrowseFolder(folder3DField)) { text = "Browse..." });
+                    browse3DRow.Add(new Button(() =>
+                    {
+                        settings.Default3DLibraryFolder = "Assets/Gradients3D";
+                        folder3DField.SetValueWithoutNotify(settings.Default3DLibraryFolder);
+                    })
+                    { text = "Reset" });
+                    rootElement.Add(browse3DRow);
+
                     var livePreviewToggle = new Toggle("Live Preview In Picker") { value = settings.PickerLivePreview, style = { marginTop = 8 } };
                     livePreviewToggle.RegisterValueChangedCallback(evt => settings.PickerLivePreview = evt.newValue);
                     rootElement.Add(livePreviewToggle);
@@ -53,7 +71,7 @@ namespace ABCodeworld.Gradients.Editor
                     });
                     rootElement.Add(resolutionField);
                 },
-                keywords = new System.Collections.Generic.HashSet<string>(new[] { "Gradient", "ABCW" }),
+                keywords = new System.Collections.Generic.HashSet<string>(new[] { "Gradient", "ABCW", "3D" }),
             };
         }
 

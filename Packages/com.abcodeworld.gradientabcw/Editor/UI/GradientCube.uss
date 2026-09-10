@@ -1,0 +1,89 @@
+/* The 3D picker's cube viewport, its key dots, and the mode column that replaces the 1D picker's
+   draggable palette swatches. Pairs with GradientPickerWindow.uss, which supplies the window chrome. */
+
+.abcw-cube-host {
+    flex-grow: 1;
+}
+
+.abcw-cube {
+    min-height: 240px;
+    height: 280px;
+    border-width: 1px;
+    border-color: var(--unity-colors-input_field-border);
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: pan;
+}
+
+/* Sits over the viewport rather than in its flow, so the cube keeps the whole area. */
+.abcw-cube__toggle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    height: 18px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin: 0;
+}
+
+/* Colour keys are circles filled with their own colour. */
+.abcw-cube-key {
+    border-width: 1px;
+    border-color: rgb(12, 16, 24);
+    border-radius: 50%;
+}
+
+/* Alpha keys are diamonds filled with their value as a grey, so the two kinds differ in shape as well
+   as in fill — a mid-grey colour key and a half-alpha key would otherwise be indistinguishable. */
+.abcw-cube-key--alpha {
+    border-radius: 1px;
+    border-color: rgb(235, 240, 250);
+    rotate: 45deg;
+}
+
+/* Whichever kind is not being edited steps back, so the mode buttons have a visible effect. */
+.abcw-cube-key--muted {
+    opacity: 0.3;
+}
+
+/* Same width and position as the 1D picker's palette column, holding buttons instead of drag sources. */
+.abcw-mode-column {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    padding: 4px;
+    margin-right: 6px;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.abcw-mode-selector {
+    flex-direction: column;
+}
+
+.abcw-mode-btn {
+    height: 34px;
+    margin: 2px 0;
+    color: var(--text);
+    background-color: #1b2c47;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 4px;
+}
+
+.abcw-mode-btn:hover {
+    background-color: #24395b;
+}
+
+.abcw-mode-btn--active {
+    color: var(--blue);
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+.abcw-mode-btn--active:hover {
+    background-color: #c8ff66;
+}
