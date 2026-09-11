@@ -13,6 +13,22 @@ namespace ABCodeworld.Gradients.Editor
     [InitializeOnLoad]
     internal static class CheckerTexture
     {
+        /// <summary>Side of one square, in pixels.</summary>
+        internal const int CellSize = 8;
+
+        internal static readonly Color Light = new Color(0.82f, 0.82f, 0.82f);
+
+        internal static readonly Color Dark = new Color(0.67f, 0.67f, 0.67f);
+
+        /// <summary>True when the square covering a pixel is the lighter of the two.</summary>
+        /// <remarks>
+        /// Exposed so a renderer that composites the backdrop itself draws the same checkerboard as the
+        /// one stacked behind everything else, rather than a second set of greys that drift from these.
+        /// <see cref="CubePreviewRasterizer"/> needs that: it trims the backdrop to the cube's silhouette,
+        /// which cannot be done by putting a texture behind the render.
+        /// </remarks>
+        internal static bool IsLightCell(int x, int y) => (((x / CellSize) + (y / CellSize)) & 1) == 0;
+
         private static Texture2D checker;
 
         static CheckerTexture() =>
@@ -29,7 +45,7 @@ namespace ABCodeworld.Gradients.Editor
 
         private static Texture2D BuildChecker()
         {
-            const int size = 16, cell = 8;
+            const int size = 2 * CellSize;
             // sRGB storage, matching the gradient preview it sits behind.
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false, linear: false)
             {
@@ -42,14 +58,8 @@ namespace ABCodeworld.Gradients.Editor
             var pixels = new Color32[size * size];
             for (int y = 0; y < size; y++)
             {
-                int cy = (y / cell) % 2;
                 for (int x = 0; x < size; x++)
-                {
-                    int cx = (x / cell) % 2;
-                    bool even = ((cx + cy) & 1) == 0;
-                    Color c = even ? new Color(0.82f, 0.82f, 0.82f) : new Color(0.67f, 0.67f, 0.67f);
-                    pixels[y * size + x] = c;
-                }
+                    pixels[y * size + x] = IsLightCell(x, y) ? Light : Dark;
             }
             tex.SetPixels32(pixels);
             tex.Apply(false, true);

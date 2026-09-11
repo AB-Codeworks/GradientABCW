@@ -47,12 +47,13 @@ namespace ABCodeworld.Gradients.Editor
             pixels = new Color32[size * size];
         }
 
-        public void Render(GradientABCW3D gradient, in CubeView view, bool includeModulation)
+        public void Render(GradientABCW3D gradient, in CubeView view, bool includeModulation,
+            CubeBackdrop backdrop = CubeBackdrop.Transparent)
         {
             if (texture == null || gradient == null)
                 return;
 
-            CubePreviewRasterizer.Render(gradient, in view, texture.width, pixels, includeModulation);
+            CubePreviewRasterizer.Render(gradient, in view, texture.width, pixels, includeModulation, backdrop);
             texture.SetPixelData(pixels, 0);
             texture.Apply(false, false);
         }

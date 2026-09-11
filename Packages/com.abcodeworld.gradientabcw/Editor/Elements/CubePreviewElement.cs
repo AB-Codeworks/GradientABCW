@@ -18,9 +18,11 @@ namespace ABCodeworld.Gradients.Editor
     /// pixels). All three matter more here: a cube render costs a ray cast and a full pass over every key
     /// per pixel, where the 1D strip costs a binary search.
     /// <para>
-    /// Transparency is composited by UI Toolkit, not by the rasteriser: the checkerboard sits behind the
-    /// render as its own stretched <see cref="Image"/>, exactly as the 1D preview does, so the two read
-    /// identically and neither has to know about the other's backdrop.
+    /// The checkerboard is composited into the render rather than stacked behind it as its own
+    /// <see cref="Image"/>, which is what the 1D preview does. A strip's backdrop has to cover the whole
+    /// element because the gradient does; a cube's does not, and these renders are fixed-angle, so a
+    /// backdrop outside the silhouette is a square of noise around a hexagon. Compositing is what lets it
+    /// be trimmed to the cube — you cannot clip a texture to a shape by putting it behind one.
     /// </para>
     /// </remarks>
     internal sealed class CubePreviewElement : VisualElement
@@ -28,7 +30,6 @@ namespace ABCodeworld.Gradients.Editor
         /// <summary>Pixel size of one render. Small on purpose: four of these sit in one inspector row.</summary>
         internal const int DefaultRenderSize = 32;
 
-        private readonly Image checkerImage;
         private readonly Image cubeImage;
         private readonly CubePreviewTexture previewTexture = new();
 
@@ -133,10 +134,6 @@ namespace ABCodeworld.Gradients.Editor
             style.height = renderSize;
             style.flexShrink = 0;
 
-            checkerImage = new Image { pickingMode = PickingMode.Ignore, scaleMode = ScaleMode.StretchToFill, image = CheckerTexture.Image };
-            StretchToParent(checkerImage);
-            Add(checkerImage);
-
             cubeImage = new Image { pickingMode = PickingMode.Ignore, scaleMode = ScaleMode.StretchToFill };
             StretchToParent(cubeImage);
             Add(cubeImage);
@@ -164,7 +161,7 @@ namespace ABCodeworld.Gradients.Editor
                 return;
 
             previewTexture.Ensure(renderSize);
-            previewTexture.Render(gradient, in view, includeModulation);
+            previewTexture.Render(gradient, in view, includeModulation, CubeBackdrop.TrimmedChecker);
             cubeImage.image = previewTexture.Texture;
 
             lastVersion = gradient.Version;

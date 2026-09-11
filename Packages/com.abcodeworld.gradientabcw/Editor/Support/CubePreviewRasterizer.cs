@@ -18,6 +18,23 @@ namespace ABCodeworld.Gradients.Editor
         }
     }
 
+    /// <summary>What fills the area a ray misses, and shows through any transparency in the cube.</summary>
+    internal enum CubeBackdrop
+    {
+        /// <summary>
+        /// Write straight RGBA and leave the caller to put something behind it. What a rotatable viewport
+        /// wants, because its silhouette moves and the backdrop has to cover the whole frame.
+        /// </summary>
+        Transparent,
+
+        /// <summary>
+        /// Composite an opaque checkerboard behind the cube only, leaving everything around it
+        /// transparent. What a fixed-angle render wants: the silhouette never moves, so a backdrop
+        /// outside it signifies nothing and only competes with the cube.
+        /// </summary>
+        TrimmedChecker,
+    }
+
     /// <summary>
     /// Renders a 3D gradient as a small solid cube: every surface pixel is the gradient evaluated at that
     /// exact point on the cube's surface, over a transparent background.
@@ -87,8 +104,9 @@ namespace ABCodeworld.Gradients.Editor
         };
 
         /// <summary>Renders <paramref name="size"/> by <paramref name="size"/> pixels into <paramref name="dst"/>.</summary>
-        internal static void Render(GradientABCW3D gradient, in CubeView view, int size, Color32[] dst, bool includeModulation) =>
-            Render(gradient, in view, size, dst, null, includeModulation);
+        internal static void Render(GradientABCW3D gradient, in CubeView view, int size, Color32[] dst, bool includeModulation,
+            CubeBackdrop backdrop = CubeBackdrop.Transparent) =>
+            Render(gradient, in view, size, dst, null, includeModulation, backdrop);
 
         /// <summary>
         /// Renders, and records which face each pixel hit in <paramref name="faceIds"/> as
@@ -99,7 +117,8 @@ namespace ABCodeworld.Gradients.Editor
         /// rather than inferred from the geometry, which is the one property of this file that has to hold
         /// for the preview to be worth showing.
         /// </remarks>
-        internal static void Render(GradientABCW3D gradient, in CubeView view, int size, Color32[] dst, sbyte[] faceIds, bool includeModulation)
+        internal static void Render(GradientABCW3D gradient, in CubeView view, int size, Color32[] dst, sbyte[] faceIds, bool includeModulation,
+            CubeBackdrop backdrop = CubeBackdrop.Transparent)
         {
             if (gradient == null || dst == null || size <= 0)
                 return;
@@ -142,11 +161,29 @@ namespace ABCodeworld.Gradients.Editor
                     Color c = includeModulation ? gradient.Evaluate(p) : gradient.EvaluateBase(p);
                     float shade = FaceShade(axis, sign);
 
-                    dst[i] = new Color32(
-                        ToByte(c.r * shade),
-                        ToByte(c.g * shade),
-                        ToByte(c.b * shade),
-                        ToByte(c.a));
+                    float r = c.r * shade;
+                    float g = c.g * shade;
+                    float b = c.b * shade;
+
+                    if (backdrop == CubeBackdrop.TrimmedChecker)
+                    {
+                        // Composited here rather than in a pass over the finished pixels, because by then
+                        // a miss and a hit on a fully transparent surface are the same (0, 0, 0, 0) — and
+                        // filling only one of them would punch a hole through the cube exactly where an
+                        // alpha key of 0 is, which is the case a checkerboard exists to show.
+                        float alpha = Mathf.Clamp01(c.a);
+                        Color checker = CheckerTexture.IsLightCell(px, py) ? CheckerTexture.Light : CheckerTexture.Dark;
+
+                        r = Mathf.Lerp(checker.r, r, alpha);
+                        g = Mathf.Lerp(checker.g, g, alpha);
+                        b = Mathf.Lerp(checker.b, b, alpha);
+
+                        dst[i] = new Color32(ToByte(r), ToByte(g), ToByte(b), 255);
+                    }
+                    else
+                    {
+                        dst[i] = new Color32(ToByte(r), ToByte(g), ToByte(b), ToByte(c.a));
+                    }
 
                     if (faceIds != null)
                         faceIds[i] = (sbyte)FaceId(axis, sign);

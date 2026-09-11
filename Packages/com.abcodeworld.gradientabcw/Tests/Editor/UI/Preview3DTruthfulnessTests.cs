@@ -48,18 +48,19 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         private Foldout ModulationFoldout() => field.Q<Foldout>("modulation");
 
         /// <summary>
-        /// The rendered pixels of a strip's first view. Each view stacks two images — the checkerboard
-        /// behind, the cube render in front — and the render stays CPU-readable because
-        /// <see cref="CubePreviewTexture"/> applies it with makeNoLongerReadable false.
+        /// The rendered pixels of a strip's first view. One image, not two: unlike the 1D strip these
+        /// renders composite their checkerboard rather than stacking one behind, so it can be trimmed to
+        /// the cube. The render stays CPU-readable because <see cref="CubePreviewTexture"/> applies it
+        /// with makeNoLongerReadable false.
         /// </summary>
         private static Color32[] ReadPixels(CubePreviewStripElement strip)
         {
             Assert.That(strip.Views.Count, Is.GreaterThan(0));
 
             var images = strip.Views[0].Query<Image>().ToList();
-            Assert.That(images.Count, Is.EqualTo(2), "expected a checkerboard image and a cube image");
+            Assert.That(images.Count, Is.EqualTo(1), "expected exactly the cube image");
 
-            var texture = images[1].image as Texture2D;
+            var texture = images[0].image as Texture2D;
             Assert.That(texture, Is.Not.Null, "the preview has not rendered a texture yet");
             return texture.GetPixels32();
         }
