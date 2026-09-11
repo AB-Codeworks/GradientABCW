@@ -16,12 +16,11 @@
 # path - it is tied to neither a Unity version nor a platform.
 # See https://game.ci/docs/github/activation.
 #
-# If the editmode job fails with "No graphic device is available to initialize the view", roughly
-# thirty tests going red together in OneTimeSetUp, the container has no display. Every
-# EditorWindowUITestFixture in this package builds a real EditorWindow and needs one; the same
-# failure is reproducible locally by adding -nographics. game-ci's editor images are expected to
-# provide a virtual display, but their docs do not say so outright, so treat that signature as the
-# first thing to check rather than as something already ruled out.
+# The editor images do provide a display, which was worth confirming rather than assuming: every
+# EditorWindowUITestFixture here builds a real EditorWindow, and roughly thirty of them fail
+# together in OneTimeSetUp with "No graphic device is available to initialize the view" when there
+# is none - reproducible locally by adding -nographics. The full 677-test editmode suite passes in
+# this container, so if that signature ever appears it is a change in the image, not in the tests.
 name: Tests
 
 on:
@@ -30,6 +29,15 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# This repository's default workflow token is read-only, and unity-test-runner publishes its results
+# as a check run, which needs checks: write. Without it the tests pass and the job still fails, on
+# "Resource not accessible by integration" - the most misleading shape of failure there is, because
+# the log says 9/9 passed a few lines above the red X. Granted here rather than by raising the
+# repository default, so nothing else gains write access.
+permissions:
+  contents: read
+  checks: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
