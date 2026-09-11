@@ -124,7 +124,14 @@ namespace ABCodeworld.Gradients.Editor
             tile.AddToClassList("abcw-library__tile");
             tile.Add(new Label(asset.name) { style = { unityFontStyleAndWeight = FontStyle.Bold } });
 
-            var preview = new CubePreviewStripElement(TilePreviewSize) { Gradient = asset.Gradient };
+            // Modulated, like the 1D library's tiles: an asset serializes its modulation alongside its
+            // keys, so a tile drawn from the base answers a different question from the one a library is
+            // asked — which of these saved gradients is the one I want.
+            var preview = new CubePreviewStripElement(TilePreviewSize)
+            {
+                IncludeModulation = true,
+                Gradient = asset.Gradient,
+            };
             tile.Add(preview);
 
             var row = new VisualElement { style = { flexDirection = FlexDirection.Row } };

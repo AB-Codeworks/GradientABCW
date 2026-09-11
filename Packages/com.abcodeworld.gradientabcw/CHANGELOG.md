@@ -48,6 +48,11 @@ All notable changes to this package are documented in this file.
 - Library tiles in the picker show each saved gradient modulated, for the same reason: an asset
   serializes its modulation along with its keys, so a tile drawn from the base was answering a
   different question from the one a library is asked.
+- The 3D field follows the same rule, and the argument is stronger there: domain modulation applies
+  to every axis at once, so a repeat count of 2 tiles the cube 2x2x2 — eight times over, not twice —
+  and reverse mirrors all three axes, reflecting the gradient rather than rotating it. Neither is
+  something a user can picture from a collapsed foldout. Its library tiles are modulated too, and
+  both fields name their preview strips identically.
 - `GradientMath.TransformT` and its colour adjustment moved verbatim into `GradientDomain`, shared
   with the 3D core, which applies the same per-axis transform to x, y and z. Both are marked
   `AggressiveInlining`, because they were a private and an internal method of their caller's own
@@ -66,7 +71,8 @@ gradient evaluates has changed, and no API changed.
 
 The picker's key bar deliberately still shows the unmodulated ramp. It is an editing surface: key
 handles sit at base-gradient positions, and drawing the modulated result under them would put the
-handles out of correspondence with what they appear to rest on.
+handles out of correspondence with what they appear to rest on. The 3D picker's cube is the same
+kind of surface: its key dots carry each key's own colour, unmodulated.
 
 ## [2.0.0]
 

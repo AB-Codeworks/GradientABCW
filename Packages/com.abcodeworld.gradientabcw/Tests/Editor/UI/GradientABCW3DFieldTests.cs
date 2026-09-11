@@ -40,10 +40,11 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         [Test]
         public void TheSwatchShowsOneRenderPerCoveringView()
         {
-            var strip = field.Q<CubePreviewStripElement>("basePreview");
+            var strip = field.Q<CubePreviewStripElement>(GradientABCW3DField.FinalPreviewName);
 
             Assert.That(strip, Is.Not.Null);
             Assert.That(strip.Views.Count, Is.EqualTo(CubePreviewRasterizer.DefaultViews.Length));
+            Assert.That(strip.IncludeModulation, Is.True, "the swatch shows what the gradient evaluates to");
         }
 
         [Test]
@@ -53,8 +54,8 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             field.value = g;
             simulate.FrameUpdate();
 
-            Assert.That(field.Q<CubePreviewStripElement>("basePreview").Gradient, Is.SameAs(g));
-            Assert.That(field.Q<CubePreviewStripElement>("finalPreview").Gradient, Is.SameAs(g));
+            Assert.That(field.Q<CubePreviewStripElement>(GradientABCW3DField.FinalPreviewName).Gradient, Is.SameAs(g));
+            Assert.That(field.Q<CubePreviewStripElement>(GradientABCW3DField.BasePreviewName).Gradient, Is.SameAs(g));
         }
 
         [Test]
@@ -157,7 +158,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             field.value = Test3DGradients.Corners8();
             simulate.FrameUpdate();
 
-            var strip = field.Q<CubePreviewStripElement>("basePreview");
+            var strip = field.Q<CubePreviewStripElement>(GradientABCW3DField.FinalPreviewName);
             int rendersAfterFirstShow = strip.BakeCount;
             Assume.That(rendersAfterFirstShow, Is.GreaterThan(0));
 
@@ -179,7 +180,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             field.value = g;
             simulate.FrameUpdate();
 
-            var strip = field.Q<CubePreviewStripElement>("basePreview");
+            var strip = field.Q<CubePreviewStripElement>(GradientABCW3DField.FinalPreviewName);
             int renders = strip.BakeCount;
 
             field.value = g;
@@ -195,7 +196,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             field.value = g;
             simulate.FrameUpdate();
 
-            var strip = field.Q<CubePreviewStripElement>("basePreview");
+            var strip = field.Q<CubePreviewStripElement>(GradientABCW3DField.FinalPreviewName);
             int renders = strip.BakeCount;
 
             ExecuteMenuAction(field.Q<ToolbarMenu>("actions"), "Flip Keys");

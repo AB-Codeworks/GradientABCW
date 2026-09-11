@@ -6,14 +6,25 @@ using UnityEngine.UIElements;
 namespace ABCodeworld.Gradients.Editor
 {
     /// <summary>
-    /// The inspector control for a <see cref="GradientABCW3D"/>: a clickable row of small cube renders, an
-    /// Edit button that opens the 3D picker, a quick-actions menu, and a collapsible modulation section
-    /// with its own final preview. Pure UI Toolkit — no IMGUI anywhere in the control.
+    /// The inspector control for a <see cref="GradientABCW3D"/>: a clickable row of small renders of the
+    /// final gradient, an Edit button that opens the 3D picker, a quick-actions menu, and a collapsible
+    /// modulation section holding the modulation controls and the unmodulated base. Pure UI Toolkit — no
+    /// IMGUI anywhere in the control.
     /// </summary>
     /// <remarks>
-    /// Structurally the 3D reading of <see cref="GradientABCWField"/>. The one visible difference is the
-    /// swatch: a 1D gradient fits in a strip, a cube does not, so the swatch is four small renders chosen
-    /// between them to show all six faces.
+    /// Structurally the 3D reading of <see cref="GradientABCWField"/>, including its decision to lead with
+    /// the <em>final</em>, modulated gradient rather than the base: the foldout is collapsed by default,
+    /// so leading with the base means the one thing most users ever see is not what the object renders.
+    /// <para>
+    /// That argument is stronger here than in 1D, because 3D modulation is less legible from its numbers.
+    /// Domain modulation applies to every axis at once, so a repeat count of 2 tiles the cube 2x2x2 —
+    /// eight times over, not twice — and reverse mirrors all three axes, reflecting the gradient rather
+    /// than rotating it. Neither is something a user can picture from a collapsed foldout.
+    /// </para>
+    /// <para>
+    /// The one visible difference from the 1D field remains the swatch: a 1D gradient fits in a strip, a
+    /// cube does not, so the swatch is four small renders chosen between them to show all six faces.
+    /// </para>
     /// </remarks>
     public sealed class GradientABCW3DField : BindableElement, INotifyValueChanged<GradientABCW3D>
     {
@@ -30,6 +41,25 @@ namespace ABCodeworld.Gradients.Editor
         /// the field needing to know about them.
         /// </summary>
         public event Action<GradientABCW3D, GradientPicker3DSession> PickerOpening;
+
+        /// <summary>
+        /// Element names for the two preview strips, deliberately the same as
+        /// <see cref="GradientABCWField"/>'s so that the two fields read alike and their tests query
+        /// alike. Named rather than found by position, for the reason that field records: a positional
+        /// lookup silently inverts what a test asserts the moment the two swap over.
+        /// </summary>
+        internal const string FinalPreviewName = "final-preview";
+
+        internal const string BasePreviewName = "base-preview";
+
+        /// <summary>Foldout heading when modulation is at identity or bypassed.</summary>
+        internal const string ModulationLabel = "Modulation";
+
+        /// <summary>
+        /// Foldout heading when modulation actually changes the output, so a collapsed foldout still
+        /// says why the cube above it looks the way it does.
+        /// </summary>
+        internal const string ModulationActiveLabel = "Modulation — active";
 
         private GradientABCW3D currentValue;
 
@@ -81,14 +111,14 @@ namespace ABCodeworld.Gradients.Editor
             var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
             header.Add(new Label(label) { style = { minWidth = 120 } });
 
-            basePreview = new CubePreviewStripElement
+            finalPreview = new CubePreviewStripElement
             {
-                name = "basePreview",
-                IncludeModulation = false,
+                name = FinalPreviewName,
+                IncludeModulation = true,
                 Clickable = true,
             };
-            basePreview.Clicked += OpenPicker;
-            header.Add(basePreview);
+            finalPreview.Clicked += OpenPicker;
+            header.Add(finalPreview);
 
             header.Add(new VisualElement { style = { flexGrow = 1 } });
             header.Add(new Button(OpenPicker) { name = "edit", text = "Edit", tooltip = "Open the 3D gradient picker." });
@@ -105,7 +135,7 @@ namespace ABCodeworld.Gradients.Editor
 
             Add(header);
 
-            modulationFoldout = new Foldout { name = "modulation", text = "Modulation", value = false, viewDataKey = "abcw-3d-modulation-foldout" };
+            modulationFoldout = new Foldout { name = "modulation", text = ModulationLabel, value = false, viewDataKey = "abcw-3d-modulation-foldout" };
             Add(modulationFoldout);
 
             blendModeField = new EnumField("Blend Mode", BlendMode.Smooth) { name = "blendMode" };
@@ -132,9 +162,14 @@ namespace ABCodeworld.Gradients.Editor
                 Mutate(g => g.Modulation = evt.newValue, Gradient3DChangedEvent.ChangeKind.Modulation));
             modulationFoldout.Add(modulationPanel);
 
-            modulationFoldout.Add(new Label("Final Preview") { style = { marginTop = 4 } });
-            finalPreview = new CubePreviewStripElement { name = "finalPreview", IncludeModulation = true };
-            modulationFoldout.Add(finalPreview);
+            modulationFoldout.Add(new Label("Unmodulated Base") { style = { marginTop = 4 } });
+            basePreview = new CubePreviewStripElement
+            {
+                name = BasePreviewName,
+                IncludeModulation = false,
+                tooltip = "Base gradient before modulation. Shown for comparison; the renders at the top are what this gradient actually evaluates to.",
+            };
+            modulationFoldout.Add(basePreview);
 
             SetValueWithoutNotify(GradientABCW3D.CreateDefault());
         }
@@ -155,6 +190,10 @@ namespace ABCodeworld.Gradients.Editor
             bool falloffApplies = currentValue.BlendMode == BlendMode.Smooth;
             falloffRow.SetEnabled(falloffApplies);
             falloffRow.EnableInClassList("abcw-falloff-row--disabled", !falloffApplies);
+
+            // IsEffective is exactly "modulation changes the output" — not bypassed and not at identity —
+            // so the heading tracks the bypass toggle and a slider being returned to its default alike.
+            modulationFoldout.text = currentValue.Modulation.IsEffective ? ModulationActiveLabel : ModulationLabel;
         }
 
         /// <summary>
