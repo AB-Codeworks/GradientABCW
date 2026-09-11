@@ -71,6 +71,30 @@ jobs:
       matrix:
         testMode: [editmode, playmode]
     steps:
+      # The Unity editor image does not fit on a stock ubuntu-latest runner. It ships about 14 GB
+      # free, the image unpacks to roughly 10, and the preinstalled toolchains below account for
+      # most of the difference - the Android SDK alone is around 11 GB and nothing here builds for
+      # Android. Without this the pull dies partway through with "failed to register layer: write
+      # /opt/unity/Editor/Data/Resources/unity editor resources: no space left on device", which
+      # reads like a broken image rather than a full disk.
+      #
+      # Done by hand rather than with a disk-cleanup action so a public repo pulls in no third
+      # party here, and so the sizes below are visible when this stops being enough.
+      - name: Free disk space
+        run: |
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          echo "after:"; df -h / | tail -1
+
       - uses: actions/checkout@v4
         with:
           lfs: true
