@@ -9,12 +9,13 @@
     flex-shrink: 0;
 }
 
-/* No fixed height: it grows to fill the host, which the row has already stretched to match the actions
-   column beside it, so the cube is as tall as that panel instead of leaving a gap under one of them.
-   The minimum is what the row falls back to when the panel is shorter than that. */
+/* A floor rather than a fixed height: it grows to fill the host, which the row has already stretched to
+   match the actions column beside it, so a taller panel makes a taller cube instead of leaving a gap
+   under one of them. The floor is the height the cube had before that column moved up here, because a
+   panel shorter than the cube must not shrink it. */
 .abcw-cube {
     flex-grow: 1;
-    min-height: 240px;
+    min-height: 280px;
     border-width: 1px;
     border-color: var(--unity-colors-input_field-border);
     border-radius: 3px;
