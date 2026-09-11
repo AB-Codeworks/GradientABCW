@@ -48,10 +48,19 @@ namespace ABCodeworld.Gradients.Editor
             public ColorField Color;
         }
 
+        /// <summary>Class marking the row of the key selected in the cube.</summary>
+        private const string SelectedRowClass = "abcw-key-list__row--selected";
+
         private readonly bool isAlpha;
         private readonly ListView listView;
         private readonly List<int> indices = new();
+
+        // Held rather than converted from a method group each time the mark moves, which a click into a
+        // row does.
+        private readonly Action<VisualElement> markRow;
+
         private GradientABCW3D gradient;
+        private int selectedIndex = -1;
 
         public event Action<int, bool> KeySelected;
         public event Action Changed;
@@ -59,6 +68,7 @@ namespace ABCodeworld.Gradients.Editor
         public KeyList3DElement(bool isAlpha)
         {
             this.isAlpha = isAlpha;
+            markRow = MarkRow;
             AddToClassList("abcw-key-list");
 
             listView = new ListView
@@ -82,6 +92,34 @@ namespace ABCodeworld.Gradients.Editor
         }
 
         /// <summary>
+        /// Marks the row for <paramref name="index"/> and brings it into view, or clears the mark with a
+        /// negative index. Called when a key is grabbed in the cube, so the row carrying its coordinates
+        /// is the one on screen rather than one scroll away.
+        /// </summary>
+        public void SetSelected(int index)
+        {
+            if (selectedIndex == index)
+                return;
+
+            selectedIndex = index;
+
+            if (index >= 0 && index < indices.Count)
+                listView.ScrollToItem(index);
+
+            // Marked in place rather than through RefreshItems. Focusing a row is one of the things that
+            // moves the mark, and rebinding a row as the pointer lands in one of its fields would reset
+            // the text under the caret.
+            listView.Query(className: "abcw-key-list__row").ForEach(markRow);
+        }
+
+        /// <summary>Applies the mark to one already-bound row, from the key index its context holds.</summary>
+        private void MarkRow(VisualElement row)
+        {
+            if (row.userData is RowContext context)
+                row.EnableInClassList(SelectedRowClass, context.KeyIndex == selectedIndex);
+        }
+
+        /// <summary>
         /// Re-reads key values into the visible rows, rebuilding the row elements only when the number of
         /// keys actually changed.
         /// </summary>
@@ -94,6 +132,10 @@ namespace ABCodeworld.Gradients.Editor
 
             if (indices.Count != count)
             {
+                // A key added or removed shifts every later index, so the mark no longer names what it
+                // did. The cube drops its selection on the same reasoning.
+                selectedIndex = -1;
+
                 indices.Clear();
                 for (int i = 0; i < count; i++)
                     indices.Add(i);
@@ -233,6 +275,8 @@ namespace ABCodeworld.Gradients.Editor
             context.X.SetValueWithoutNotify(position.x);
             context.Y.SetValueWithoutNotify(position.y);
             context.Z.SetValueWithoutNotify(position.z);
+
+            row.EnableInClassList(SelectedRowClass, keyIndex == selectedIndex);
         }
 
         private void NotifyChanged() => Changed?.Invoke();

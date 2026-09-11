@@ -5,13 +5,19 @@ using UnityEngine.UIElements;
 namespace ABCodeworld.Gradients.Editor
 {
     /// <summary>
-    /// Owns pointer capture and drag state for rotating the cube viewport. The element supplies what to do
-    /// with the movement through the hooks below, keeping the drag mechanics independent of how the cube
-    /// is projected or drawn.
+    /// Owns pointer capture and drag state for rotating the cube viewport with the right button. The
+    /// element supplies what to do with the movement through the hooks below, keeping the drag mechanics
+    /// independent of how the cube is projected or drawn.
     /// </summary>
     /// <remarks>
-    /// Shaped after <see cref="KeyDragManipulator"/>, but far simpler: there is nothing to hit-test and
-    /// nothing to remove, because the cube has no draggable keys. Rotation is all it does.
+    /// Shaped after <see cref="KeyDragManipulator"/>, but simpler: there is nothing to hit-test and
+    /// nothing to remove, because turning the view picks nothing out of it. Rotation is all it does.
+    /// <para>
+    /// Right button rather than left. The left one belongs to the keys — a cube you can only turn is a
+    /// picture, and the point of the viewport is that you can place keys in it — so the two gestures are
+    /// split by button and both manipulators sit on the same element, each ignoring the other's presses
+    /// through its own activation filter.
+    /// </para>
     /// </remarks>
     internal sealed class CubeRotateManipulator : PointerManipulator
     {
@@ -25,7 +31,7 @@ namespace ABCodeworld.Gradients.Editor
 
         public CubeRotateManipulator()
         {
-            activators.Add(new ManipulatorActivationFilter { button = MouseButton.LeftMouse });
+            activators.Add(new ManipulatorActivationFilter { button = MouseButton.RightMouse });
         }
 
         protected override void RegisterCallbacksOnTarget()

@@ -7,12 +7,12 @@
       <ui:VisualElement name="cubeRow" class="abcw-bar-row">
         <ui:VisualElement name="modeHost" class="abcw-mode-column" />
         <ui:VisualElement name="cubeHost" class="abcw-cube-host" />
+        <ui:VisualElement name="actionsHost" class="abcw-card abcw-actions-column" />
       </ui:VisualElement>
 
       <ui:VisualElement name="listsRow" class="abcw-lists-row">
         <ui:VisualElement name="colorListHost" class="abcw-card abcw-list-col" />
         <ui:VisualElement name="alphaListHost" class="abcw-card abcw-list-col" />
-        <ui:VisualElement name="actionsHost" class="abcw-card abcw-list-col" />
       </ui:VisualElement>
     </ui:VisualElement>
 

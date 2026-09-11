@@ -6,20 +6,30 @@ using UnityEngine.UIElements;
 namespace ABCodeworld.Gradients.Editor
 {
     /// <summary>
-    /// The 3D picker's main viewport: a drag-rotatable wireframe cube showing every key as a coloured dot
-    /// inside it, or the same cube rendered solid at the same rotation.
+    /// The 3D picker's main viewport: a wireframe cube showing every key as a coloured dot inside it,
+    /// turned by right-dragging and authored by left-dragging its dots, or the same cube rendered solid
+    /// at the same rotation.
     /// </summary>
     /// <remarks>
-    /// This is what stands in for the 1D picker's gradient bar, and it is deliberately not an equivalent
-    /// of it. The bar is where keys are authored: you drag them along it, and it doubles as the live
-    /// preview. A cube can be neither — a pointer gives two coordinates and a key needs three, so dragging
-    /// a dot could only ever move it within one arbitrary plane. So the cube shows and the key lists edit,
-    /// and this element raises no change events at all.
+    /// This is what stands in for the 1D picker's gradient bar, and it now does the same two jobs: it is
+    /// the live preview, because the dots carry their own keys' colours and turning the cube reads as a
+    /// point cloud of the gradient, and it is where keys are placed.
     /// <para>
-    /// What it does still give you is a preview, because the dots carry their own keys' colours: rotating
-    /// the cube reads as a point cloud of the gradient. The solid toggle covers the rest, rendering the
-    /// same cube through <see cref="CubePreviewRasterizer"/> at the same rotation and the same projection,
-    /// so the two views line up exactly rather than jumping.
+    /// A pointer gives two coordinates and a key needs three, so a drag has to choose a plane. It moves
+    /// the key across the cube-local XZ plane it already sits in, following the pointer exactly through
+    /// <see cref="CubeGeometry.TryUnprojectOntoPlaneY"/>, and Shift switches to the Y axis alone. Only
+    /// keys of the kind being edited answer to a drag, because a dot alone does not say which kind you
+    /// meant — the same ambiguity the mode buttons exist to settle. The key lists are still the way to
+    /// type an exact coordinate, and they track a drag as it happens.
+    /// </para>
+    /// <para>
+    /// Rotation is on the right button so the left is free for the keys. The two manipulators sit on
+    /// this one element and ignore each other's presses through their own activation filters.
+    /// </para>
+    /// <para>
+    /// The solid toggle covers the rest, rendering the same cube through
+    /// <see cref="CubePreviewRasterizer"/> at the same rotation and the same projection, so the two views
+    /// line up exactly rather than jumping. Keys cannot be dragged there, because none are drawn.
     /// </para>
     /// <para>
     /// Drawn with UI Toolkit's own vector API rather than IMGUI Handles or a PreviewRenderUtility camera.
@@ -74,6 +84,19 @@ namespace ABCodeworld.Gradients.Editor
         private int lastAlphaCount = -1;
         private IVisualElementScheduledItem pendingSolidRender;
 
+        private int selectedIndex = -1;
+        private bool selectedIsAlpha;
+
+        // Everything a drag needs to map pointer movement to cube movement, captured when the drag
+        // starts and whenever Shift flips mid-drag. Held rather than re-derived per move so that a key
+        // clamped against a cube wall cannot feed its clamped position back into the mapping and drift.
+        private bool dragVertical;
+        private float dragPlaneY;
+        private Vector3 dragGrabOffset;
+        private float dragAnchorPointerY;
+        private float dragAnchorKeyY;
+        private float dragPixelsPerUnitY;
+
         /// <summary>How many times the dot elements have been torn down and rebuilt. Exposed for tests.</summary>
         internal int RebuildCount { get; private set; }
 
@@ -82,6 +105,14 @@ namespace ABCodeworld.Gradients.Editor
 
         public float Yaw => yaw;
         public float Pitch => pitch;
+
+        /// <summary>The key a pointer last grabbed, or -1. Read with <see cref="SelectedIsAlpha"/>.</summary>
+        public int SelectedIndex => selectedIndex;
+
+        public bool SelectedIsAlpha => selectedIsAlpha;
+
+        /// <summary>Raised when a drag grabs a key, so the key lists can follow the selection.</summary>
+        public event Action<int, bool> KeySelected;
 
         /// <summary>
         /// The gradient shown. Assigning the instance already held is a refresh, not an invalidation —
@@ -102,7 +133,10 @@ namespace ABCodeworld.Gradients.Editor
             }
         }
 
-        /// <summary>Which kind of key the picker is editing. The other kind's dots are drawn muted.</summary>
+        /// <summary>
+        /// Which kind of key the picker is editing. The other kind's dots are drawn muted, and only this
+        /// kind's answer to a drag.
+        /// </summary>
         public bool AlphaMode
         {
             get => alphaMode;
@@ -180,6 +214,16 @@ namespace ABCodeworld.Gradients.Editor
                 },
             });
 
+            // Shift is a modifier the drag reads rather than one it should decline, so it is named as an
+            // activator too; without it a Shift-drag would never start.
+            this.AddManipulator(new KeyDragManipulator(EventModifiers.None, EventModifiers.Shift)
+            {
+                HitTest = TryHitDot,
+                OnSelect = Select,
+                OnDragStart = BeginKeyDrag,
+                OnDrag = DragKey,
+            });
+
             RegisterCallback<GeometryChangedEvent>(_ => OnRotationChanged());
             RegisterCallback<DetachFromPanelEvent>(_ => solidTexture.Dispose());
 
@@ -192,6 +236,24 @@ namespace ABCodeworld.Gradients.Editor
             yaw = DefaultYaw;
             pitch = DefaultPitch;
             OnRotationChanged();
+        }
+
+        /// <summary>
+        /// Marks a key as the selected one, or clears the selection with a negative index. Kept in step
+        /// with the key lists by the picker window, in both directions.
+        /// </summary>
+        public void SetSelected(int index, bool isAlpha)
+        {
+            if (selectedIndex == index && selectedIsAlpha == isAlpha)
+                return;
+
+            selectedIndex = index;
+            selectedIsAlpha = isAlpha;
+
+            // Selection is not part of the gradient, so the version stamp has not moved and Refresh
+            // would style nothing. Restyling outright is the whole of the work either way.
+            if (gradient != null && dots.Count == gradient.ColorKeys.Length + gradient.AlphaKeys.Length)
+                StyleDots();
         }
 
         public void Refresh()
@@ -280,6 +342,10 @@ namespace ABCodeworld.Gradients.Editor
 
         private void RebuildDots(int total)
         {
+            // A key added or removed shifts every later index, so the stored one no longer names what
+            // it did. Cheaper and safer to drop the selection than to guess where it went.
+            selectedIndex = -1;
+
             dotLayer.Clear();
             dots.Clear();
             if (dotDepths.Length != total)
@@ -308,6 +374,7 @@ namespace ABCodeworld.Gradients.Editor
                 var dot = dots[i];
                 dot.EnableInClassList("abcw-cube-key--alpha", false);
                 dot.EnableInClassList("abcw-cube-key--muted", alphaMode);
+                dot.EnableInClassList("abcw-cube-key--selected", !selectedIsAlpha && selectedIndex == i);
                 dot.style.backgroundColor = colorKeys[i].color;
                 dot.tooltip = $"Colour key {i} — {Format(colorKeys[i].position)}";
             }
@@ -318,6 +385,7 @@ namespace ABCodeworld.Gradients.Editor
                 float a = alphaKeys[i].alpha;
                 dot.EnableInClassList("abcw-cube-key--alpha", true);
                 dot.EnableInClassList("abcw-cube-key--muted", !alphaMode);
+                dot.EnableInClassList("abcw-cube-key--selected", selectedIsAlpha && selectedIndex == i);
 
                 // Alpha as luminance rather than as transparency: a dot drawn at its own alpha would
                 // vanish exactly where it most needs to be visible.
@@ -332,7 +400,7 @@ namespace ABCodeworld.Gradients.Editor
             if (gradient == null || dots.Count == 0)
                 return;
 
-            var geometry = new CubeGeometry(dotLayer.contentRect, yaw, pitch);
+            var geometry = DotGeometry;
             var colorKeys = gradient.ColorKeys;
             var alphaKeys = gradient.AlphaKeys;
 
@@ -368,6 +436,213 @@ namespace ABCodeworld.Gradients.Editor
             dot.style.top = rect.y;
             dot.style.width = rect.width;
             dot.style.height = rect.height;
+        }
+
+        /// <summary>The projection the dots are laid out with, and so the one a pointer is read against.</summary>
+        private CubeGeometry DotGeometry => new CubeGeometry(dotLayer.contentRect, yaw, pitch);
+
+        /// <summary>
+        /// Pointer events arrive in this element's own space; the dots are laid out in the dot layer's,
+        /// one border width away. A far dot is six pixels across and cannot spare that, so the two spaces
+        /// are reconciled rather than assumed equal.
+        /// </summary>
+        private Vector2 ToDotLayerSpace(Vector2 elementLocal) => dotLayer.WorldToLocal(this.LocalToWorld(elementLocal));
+
+        /// <summary>
+        /// The key under the pointer, of the kind currently being edited, or null.
+        /// </summary>
+        /// <remarks>
+        /// Only the edited kind answers, because a dot on its own does not say which kind you meant —
+        /// the ambiguity the mode buttons exist to settle. Nothing answers in the solid view, where no
+        /// dots are drawn.
+        /// </remarks>
+        private (int index, bool isAlpha)? TryHitDot(Vector2 elementLocal)
+        {
+            if (gradient == null || solidView)
+                return null;
+
+            Vector2 local = ToDotLayerSpace(elementLocal);
+            var geometry = DotGeometry;
+
+            int index = alphaMode
+                ? NearestDotAt(gradient.AlphaKeys, in geometry, local)
+                : NearestDotAt(gradient.ColorKeys, in geometry, local);
+
+            if (index < 0)
+                return null;
+
+            return (index, alphaMode);
+        }
+
+        /// <summary>
+        /// The nearest key whose dot contains <paramref name="local"/>, or -1.
+        /// </summary>
+        /// <remarks>
+        /// Generic over the key kind rather than written out twice, which is what
+        /// <see cref="IGradientKey3D{TSelf}"/> is for; the struct constraint keeps it free of boxing.
+        /// Nearest wins so that grabbing where two dots overlap takes the one drawn on top, which is the
+        /// one the painter's algorithm in <see cref="LayoutDots"/> put there.
+        /// </remarks>
+        private static int NearestDotAt<TKey>(ReadOnlySpan<TKey> keys, in CubeGeometry geometry, Vector2 local)
+            where TKey : struct, IGradientKey3D<TKey>
+        {
+            int best = -1;
+            float bestDepth = float.MaxValue;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                Vector3 position = keys[i].Position;
+                if (!geometry.GrabRect(position).Contains(local))
+                    continue;
+
+                float depth = geometry.Depth(position);
+                if (depth >= bestDepth)
+                    continue;
+
+                bestDepth = depth;
+                best = i;
+            }
+
+            return best;
+        }
+
+        private void Select(int index, bool isAlpha)
+        {
+            SetSelected(index, isAlpha);
+            KeySelected?.Invoke(index, isAlpha);
+        }
+
+        private static bool IsVertical(EventModifiers modifiers) => (modifiers & EventModifiers.Shift) != 0;
+
+        private void BeginKeyDrag(int index, bool isAlpha, Vector2 elementLocal, EventModifiers modifiers) =>
+            AnchorDrag(index, isAlpha, ToDotLayerSpace(elementLocal), IsVertical(modifiers));
+
+        /// <summary>
+        /// Fixes how the rest of this drag reads the pointer: which axis it moves along, and where the
+        /// key sat relative to the pointer when it was grabbed.
+        /// </summary>
+        private void AnchorDrag(int index, bool isAlpha, Vector2 local, bool vertical)
+        {
+            if (!TryKeyPosition(index, isAlpha, out Vector3 position))
+                return;
+
+            dragVertical = vertical;
+            var geometry = DotGeometry;
+
+            if (vertical)
+            {
+                dragAnchorPointerY = local.y;
+                dragAnchorKeyY = position.y;
+                dragPixelsPerUnitY = geometry.PixelsPerUnitY(position);
+                return;
+            }
+
+            dragPlaneY = position.y;
+
+            // Without the offset the key would jump so that its centre sat under the pointer, which is
+            // never what grabbing the edge of a dot was meant to say.
+            dragGrabOffset = geometry.TryUnprojectOntoPlaneY(local, dragPlaneY, out Vector3 grabbed)
+                ? position - grabbed
+                : Vector3.zero;
+        }
+
+        private void DragKey(int index, bool isAlpha, Vector2 elementLocal, EventModifiers modifiers)
+        {
+            if (gradient == null)
+                return;
+
+            Vector2 local = ToDotLayerSpace(elementLocal);
+            bool vertical = IsVertical(modifiers);
+
+            // Pressing or releasing Shift mid-drag swaps which axis is moving. Re-anchoring on the swap
+            // is what keeps the key under the pointer rather than jumping to wherever the stale anchors
+            // would have put it.
+            if (vertical != dragVertical)
+                AnchorDrag(index, isAlpha, local, vertical);
+
+            if (!TryKeyPosition(index, isAlpha, out Vector3 position))
+                return;
+            if (!TryDraggedPosition(local, position, out Vector3 moved))
+                return;
+
+            WriteKeyPosition(index, isAlpha, moved);
+            Refresh();
+            RaiseChanged();
+        }
+
+        /// <summary>
+        /// Where the key should go for a pointer at <paramref name="local"/>, or false when this rotation
+        /// cannot answer — see <see cref="CubeGeometry.TryUnprojectOntoPlaneY"/> and
+        /// <see cref="CubeGeometry.MinPixelsPerUnitY"/>. Holding the key still is the honest response
+        /// there: the cube can be turned and the drag carried on.
+        /// </summary>
+        private bool TryDraggedPosition(Vector2 local, Vector3 current, out Vector3 moved)
+        {
+            moved = current;
+
+            if (dragVertical)
+            {
+                if (dragPixelsPerUnitY < CubeGeometry.MinPixelsPerUnitY)
+                    return false;
+
+                // Pointer x is ignored outright: a drag up the Y axis should not slide the key sideways
+                // because the hand wandered.
+                moved.y = dragAnchorKeyY - (local.y - dragAnchorPointerY) / dragPixelsPerUnitY;
+                return true;
+            }
+
+            if (!DotGeometry.TryUnprojectOntoPlaneY(local, dragPlaneY, out Vector3 hit))
+                return false;
+
+            // The offset was taken within this same plane, so it carries no height and the key stays on it.
+            moved = hit + dragGrabOffset;
+            return true;
+        }
+
+        private bool TryKeyPosition(int index, bool isAlpha, out Vector3 position)
+        {
+            position = default;
+            if (gradient == null || index < 0)
+                return false;
+
+            if (isAlpha)
+            {
+                var alphaKeys = gradient.AlphaKeys;
+                if (index >= alphaKeys.Length)
+                    return false;
+                position = alphaKeys[index].position;
+                return true;
+            }
+
+            var colorKeys = gradient.ColorKeys;
+            if (index >= colorKeys.Length)
+                return false;
+            position = colorKeys[index].position;
+            return true;
+        }
+
+        /// <summary>
+        /// Writes a dragged position back. Both key constructors run their position through
+        /// <c>ClampToUnitCube</c>, so a drag cannot take a key outside the cube it is drawn in, and a
+        /// position change keeps the key's index, so there is nothing to re-sort and no drag index to fix.
+        /// </summary>
+        private void WriteKeyPosition(int index, bool isAlpha, Vector3 position)
+        {
+            if (isAlpha)
+                gradient.SetAlphaKey(index, new AlphaKey3D(gradient.AlphaKeys[index].alpha, position));
+            else
+                gradient.SetColorKey(index, new ColorKey3D(gradient.ColorKeys[index].color, position));
+        }
+
+        /// <summary>
+        /// Announces a key move the way <see cref="GradientBarElement"/> announces one, so the picker
+        /// window and the inspector field react to a cube drag exactly as they do to a bar drag.
+        /// </summary>
+        private void RaiseChanged()
+        {
+            using var changed = Gradient3DChangedEvent.GetPooled(gradient, Gradient3DChangedEvent.ChangeKind.Keys);
+            changed.target = this;
+            SendEvent(changed);
         }
 
         /// <summary>

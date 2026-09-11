@@ -46,4 +46,12 @@
 
 .abcw-key-list__row {
     margin-bottom: 2px;
+    border-left-width: 2px;
+    border-left-color: rgba(0, 0, 0, 0);
+}
+
+/* Marks the row whose key is selected in the cube, in the same yellow as .abcw-key--selected. The
+   unselected row already reserves the stripe's width, so selecting one shifts nothing. */
+.abcw-key-list__row--selected {
+    border-left-color: rgb(255, 221, 0);
 }

@@ -84,9 +84,8 @@ namespace ABCodeworld.Gradients.Editor
             dragManipulator = new KeyDragManipulator
             {
                 HitTest = TryHitHandle,
-                TimeFromPosition = GetTimeFromLocalPosition,
                 OnSelect = Select,
-                OnDrag = HandleDrag,
+                OnDrag = (index, isAlpha, position, _) => HandleDrag(index, isAlpha, GetTimeFromLocalPosition(position)),
                 ShouldRemove = ShouldRemoveAt,
                 OnRemove = (index, isAlpha) => RemoveKey(index, isAlpha),
             };

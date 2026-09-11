@@ -191,6 +191,94 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             Assert.That(g.Viewport.width, Is.GreaterThan(0f));
         }
 
+        /// <summary>
+        /// The whole point of <see cref="CubeGeometry.TryUnprojectOntoPlaneY"/>: a key dragged to a pixel
+        /// lands where that pixel points, so it stays under the pointer instead of drifting away from it.
+        /// </summary>
+        [Test]
+        public void UnprojectingAProjectedPointReturnsThatPoint()
+        {
+            var points = new[]
+            {
+                new Vector3(0.5f, 0.5f, 0.5f),
+                new Vector3(0.1f, 0.25f, 0.9f),
+                new Vector3(0.95f, 0.75f, 0.05f),
+                new Vector3(0f, 0f, 0f),
+                new Vector3(1f, 1f, 1f),
+            };
+
+            foreach (float yaw in new[] { 0f, 45f, 137f, 300f })
+            {
+                foreach (float pitch in new[] { -70f, -30f, 30f, 60f })
+                {
+                    var g = Geometry(yaw, pitch);
+                    foreach (Vector3 point in points)
+                    {
+                        Assert.That(g.TryUnprojectOntoPlaneY(g.Project(point), point.y, out Vector3 back), Is.True,
+                            $"{point} at yaw {yaw}, pitch {pitch}");
+                        Assert.That(Vector3.Distance(back, point), Is.LessThan(1e-3f),
+                            $"{point} came back as {back} at yaw {yaw}, pitch {pitch}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Looking along the plane, a pixel names no point on it: the ray grazes, and a pixel of pointer
+        /// movement would sweep the answer across the cube and out the far side. Refusing is what lets the
+        /// viewport hold the key still instead of flinging it.
+        /// </summary>
+        [Test]
+        public void UnprojectingRefusesWhenThePlaneIsEdgeOn()
+        {
+            var g = Geometry(45f, 0f);
+            Vector3 point = new Vector3(0.5f, 0.5f, 0.5f);
+
+            Assert.That(g.TryUnprojectOntoPlaneY(g.Project(point), point.y, out _), Is.False);
+        }
+
+        [Test]
+        public void UnprojectingRefusesAPlaneBehindTheEye()
+        {
+            // Looking down from well above, a plane far overhead is behind the camera.
+            var g = Geometry(45f, 80f);
+
+            Assert.That(g.TryUnprojectOntoPlaneY(new Vector2(Side * 0.5f, Side * 0.5f), 50f, out _), Is.False);
+        }
+
+        /// <summary>
+        /// The vertical drag divides by this, so it has to shrink as the Y axis turns towards the eye —
+        /// and the viewport refuses the drag once it falls below <see cref="CubeGeometry.MinPixelsPerUnitY"/>.
+        /// </summary>
+        [Test]
+        public void HeightCoversFewerPixelsAsTheViewLooksStraightDown()
+        {
+            Vector3 centre = new Vector3(0.5f, 0.5f, 0.5f);
+
+            float shallow = Geometry(45f, 5f).PixelsPerUnitY(centre);
+            float steep = Geometry(45f, 85f).PixelsPerUnitY(centre);
+
+            Assert.That(shallow, Is.GreaterThan(0f), "a step up should read as a step up the screen");
+            Assert.That(steep, Is.LessThan(shallow));
+        }
+
+        [Test]
+        public void AGrabRectCoversItsDotEvenAtTheFarCorner()
+        {
+            var g = Geometry(45f, 30f);
+
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = CubeGeometry.Corner(i);
+                Rect dot = g.DotRect(corner);
+                Rect grab = g.GrabRect(corner);
+
+                Assert.That(grab.Contains(dot.min), Is.True, $"corner {i}");
+                Assert.That(grab.Contains(dot.max), Is.True, $"corner {i}");
+                Assert.That(grab.width, Is.GreaterThan(dot.width));
+            }
+        }
+
         [Test]
         public void TheViewportIsASquareCentredInTheFrame()
         {

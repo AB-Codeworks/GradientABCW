@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor.UIElements;
 using UnityEditor.UIElements.TestFramework;
@@ -54,11 +55,11 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         }
 
         /// <summary>
-        /// The cube shows keys; it never edits them. A pointer gives two coordinates and a key needs
-        /// three, so there is nothing sensible for dragging a dot to mean.
+        /// Rotation lives on the right button so the left one is free to move keys. Turning the view
+        /// still picks nothing out of it.
         /// </summary>
         [Test]
-        public void RotatingTheCubeDoesNotChangeTheGradient()
+        public void RightDraggingTurnsTheCubeAndChangesNothing()
         {
             var session = new GradientPicker3DSession { LivePreview = true };
             window.BeginSession(Test3DGradients.Corners8(), session);
@@ -69,11 +70,193 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             float yawBefore = cube.Yaw;
 
             Vector2 from = cube.worldBound.center;
-            simulate.DragAndDrop(from, from + new Vector2(40f, 0f));
+            simulate.DragAndDrop(from, from + new Vector2(40f, 0f), MouseButton.RightMouse);
             simulate.FrameUpdate();
 
             Assert.That(cube.Yaw, Is.Not.EqualTo(yawBefore), "the drag should have turned the cube");
             Assert.That(window.Working.Version, Is.EqualTo(versionBefore), "and changed nothing about the gradient");
+        }
+
+        [Test]
+        public void LeftDraggingAKeyDoesNotTurnTheCube()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            float yawBefore = cube.Yaw;
+            float pitchBefore = cube.Pitch;
+
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(40f, 20f));
+            simulate.FrameUpdate();
+
+            Assert.That(cube.Yaw, Is.EqualTo(yawBefore));
+            Assert.That(cube.Pitch, Is.EqualTo(pitchBefore));
+        }
+
+        [Test]
+        public void LeftDraggingEmptySpaceChangesNothing()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            int versionBefore = window.Working.Version;
+            float yawBefore = cube.Yaw;
+
+            // A corner of the viewport, well clear of the one key at the centre of the cube.
+            Vector2 from = cube.worldBound.min + new Vector2(4f, 4f);
+            simulate.DragAndDrop(from, from + new Vector2(40f, 40f));
+            simulate.FrameUpdate();
+
+            Assert.That(window.Working.Version, Is.EqualTo(versionBefore));
+            Assert.That(cube.Yaw, Is.EqualTo(yawBefore));
+        }
+
+        /// <summary>
+        /// A pointer gives two coordinates and a key needs three, so a drag moves the key across the XZ
+        /// plane it already sits in. The height it was placed at is exactly what must not move.
+        /// </summary>
+        [Test]
+        public void LeftDraggingAKeyMovesItAcrossItsOwnXZPlane()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            Vector3 before = window.Working.ColorKeys[0].position;
+
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(30f, 15f));
+            simulate.FrameUpdate();
+
+            Vector3 after = window.Working.ColorKeys[0].position;
+            Assert.That(after.y, Is.EqualTo(before.y).Within(1e-4f), "the drag should not have changed the key's height");
+            Assert.That(new Vector2(after.x, after.z), Is.Not.EqualTo(new Vector2(before.x, before.z)));
+        }
+
+        [Test]
+        public void ShiftLeftDraggingAKeyMovesItAlongYOnly()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            Vector3 before = window.Working.ColorKeys[0].position;
+
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(25f, -40f), MouseButton.LeftMouse, EventModifiers.Shift);
+            simulate.FrameUpdate();
+
+            Vector3 after = window.Working.ColorKeys[0].position;
+            Assert.That(after.y, Is.GreaterThan(before.y), "dragging up the screen should raise the key");
+            Assert.That(after.x, Is.EqualTo(before.x).Within(1e-4f), "pointer x is ignored on a vertical drag");
+            Assert.That(after.z, Is.EqualTo(before.z).Within(1e-4f));
+        }
+
+        [Test]
+        public void AShiftDragAcrossTheScreenMovesNothing()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            int versionBefore = window.Working.Version;
+
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(60f, 0f), MouseButton.LeftMouse, EventModifiers.Shift);
+            simulate.FrameUpdate();
+
+            // Checked first, because a drag that never started would also have moved nothing: an
+            // activation filter matches modifiers exactly, so Shift has to be named as an activator.
+            Assert.That(cube.SelectedIndex, Is.EqualTo(0), "the Shift drag should still have grabbed the key");
+            Assert.That(window.Working.Version, Is.EqualTo(versionBefore));
+        }
+
+        [Test]
+        public void ADraggedKeyStaysInsideTheCube()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(4000f, 2500f));
+            simulate.FrameUpdate();
+
+            Vector3 after = window.Working.ColorKeys[0].position;
+            Assert.That(after.x, Is.InRange(0f, 1f));
+            Assert.That(after.y, Is.InRange(0f, 1f));
+            Assert.That(after.z, Is.InRange(0f, 1f));
+        }
+
+        /// <summary>
+        /// A dot on its own does not say whether you meant a colour key or an alpha one — the ambiguity
+        /// the mode buttons exist to settle. <see cref="Test3DGradients.Single"/> stacks one of each at
+        /// the same point, so only the mode can decide which the drag grabbed.
+        /// </summary>
+        [Test]
+        public void OnlyKeysOfTheSelectedModeCanBeDragged()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            Vector3 alphaBefore = window.Working.AlphaKeys[0].position;
+
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(30f, 15f));
+            simulate.FrameUpdate();
+
+            Assert.That(window.Working.AlphaKeys[0].position, Is.EqualTo(alphaBefore), "colour mode moved an alpha key");
+            Assert.That(window.Working.ColorKeys[0].position, Is.Not.EqualTo(alphaBefore));
+        }
+
+        [Test]
+        public void DraggingAKeyUpdatesItsRowInTheKeyList()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(30f, 15f));
+            simulate.FrameUpdate();
+
+            var x = window.rootVisualElement.Q<FloatField>("x");
+            Assert.That(x.value, Is.EqualTo(window.Working.ColorKeys[0].position.x).Within(1e-4f));
+        }
+
+        [Test]
+        public void GrabbingAKeyMarksItInTheCubeAndInItsRow()
+        {
+            window.BeginSession(Test3DGradients.Single(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var cube = window.rootVisualElement.Q<GradientCubeElement>("cube");
+            Vector2 from = DotCentre(cube, alpha: false, index: 0);
+            simulate.DragAndDrop(from, from + new Vector2(30f, 15f));
+            simulate.FrameUpdate();
+
+            Assert.That(cube.SelectedIndex, Is.EqualTo(0));
+            Assert.That(cube.SelectedIsAlpha, Is.False);
+            Assert.That(window.rootVisualElement.Query(className: "abcw-key-list__row--selected").ToList(),
+                Is.Not.Empty, "the colour key's row should be marked");
+        }
+
+        /// <summary>
+        /// The centre of the dot standing for key <paramref name="index"/> of the given kind, in panel
+        /// coordinates. Read off the element rather than re-derived, so the test cannot quietly agree
+        /// with a projection bug.
+        /// </summary>
+        private static Vector2 DotCentre(GradientCubeElement cube, bool alpha, int index)
+        {
+            List<VisualElement> dots = cube.Query(className: "abcw-cube-key").ToList()
+                .FindAll(d => d.ClassListContains("abcw-cube-key--alpha") == alpha);
+
+            Assume.That(dots.Count, Is.GreaterThan(index));
+            return dots[index].worldBound.center;
         }
 
         [Test]

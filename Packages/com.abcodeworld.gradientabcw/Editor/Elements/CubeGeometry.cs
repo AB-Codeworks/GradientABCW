@@ -45,6 +45,27 @@ namespace ABCodeworld.Gradients.Editor
         public const float DotSizeNear = 11f;
         public const float DotSizeFar = 6f;
 
+        /// <summary>
+        /// Grown around a dot to make it grabbable. A far dot is six pixels across, which is a hard
+        /// target for a pointer; the cost is the occasional ambiguous grab, which the depth tie-break
+        /// in the viewport settles.
+        /// </summary>
+        public const float GrabPadding = 3f;
+
+        /// <summary>
+        /// How square-on a plane has to be to the eye ray before a pixel is taken to name a point on
+        /// it. About seven degrees: below that the ray grazes the plane, and one pixel of pointer
+        /// movement sweeps the intersection across the whole cube and out the far side.
+        /// </summary>
+        public const float MinPlaneCosine = 0.12f;
+
+        /// <summary>
+        /// Fewest screen pixels a cube unit of height may cover before a vertical drag is refused.
+        /// The same problem seen along the other axis: looking straight down, the Y axis projects to
+        /// a point and no pointer movement can be read as height.
+        /// </summary>
+        public const float MinPixelsPerUnitY = 4f;
+
         /// <summary>The twelve edges of a cube, as pairs of corner indices.</summary>
         public const int EdgeCount = 12;
 
@@ -115,6 +136,74 @@ namespace ABCodeworld.Gradients.Editor
             Vector2 centre = Project(p);
             float size = Mathf.Lerp(DotSizeNear, DotSizeFar, Depth(p));
             return new Rect(centre.x - size * 0.5f, centre.y - size * 0.5f, size, size);
+        }
+
+        /// <summary>
+        /// A dot's rect grown by <see cref="GrabPadding"/>, for hit-testing a pointer against the key
+        /// it stands for.
+        /// </summary>
+        public Rect GrabRect(Vector3 p)
+        {
+            Rect r = DotRect(p);
+            return new Rect(
+                r.x - GrabPadding,
+                r.y - GrabPadding,
+                r.width + GrabPadding * 2f,
+                r.height + GrabPadding * 2f);
+        }
+
+        /// <summary>
+        /// The inverse of <see cref="Project"/>, resolved onto the horizontal plane at
+        /// <paramref name="planeY"/>: where the eye ray through <paramref name="localPoint"/> meets it.
+        /// </summary>
+        /// <remarks>
+        /// Returns false when the plane is too edge-on for a pixel to name a point on it (see
+        /// <see cref="MinPlaneCosine"/>), or when it lies behind the eye. A caller that gets false
+        /// should leave the dragged key where it is rather than substitute a guess: at that rotation
+        /// the pointer genuinely carries no answer, and the fix is to turn the cube.
+        /// </remarks>
+        public bool TryUnprojectOntoPlaneY(Vector2 localPoint, float planeY, out Vector3 point)
+        {
+            point = default;
+
+            float ndcX = (localPoint.x - screenCentre.x) / halfSide;
+            float ndcY = (screenCentre.y - localPoint.y) / halfSide;
+
+            Vector3 direction = forward
+                + right * (ndcX * CubePreviewRasterizer.TanHalfFov)
+                + up * (ndcY * CubePreviewRasterizer.TanHalfFov);
+
+            float length = direction.magnitude;
+            if (length < 1e-6f || Mathf.Abs(direction.y) < MinPlaneCosine * length)
+                return false;
+
+            float distance = (planeY - eye.y) / direction.y;
+            if (distance <= 0f)
+                return false;
+
+            point = eye + direction * distance;
+
+            // Placed on the plane outright rather than left within rounding of it, so a drag that
+            // holds one axis really does hold it.
+            point.y = planeY;
+            return true;
+        }
+
+        /// <summary>
+        /// Screen pixels of upward movement per cube unit of +Y, at <paramref name="at"/>.
+        /// </summary>
+        /// <remarks>
+        /// Projected rather than differentiated, so it cannot drift out of step with
+        /// <see cref="Project"/>. Only the vertical component is measured, which is exact: the camera
+        /// basis is built with <c>right</c> perpendicular to world up, so the Y axis has no screen-x
+        /// component to lose.
+        /// </remarks>
+        public float PixelsPerUnitY(Vector3 at)
+        {
+            const float step = 0.01f;
+
+            // Screen y grows downward, so a step up the Y axis lands at a smaller y.
+            return (Project(at).y - Project(at + new Vector3(0f, step, 0f)).y) / step;
         }
 
         /// <summary>

@@ -11,11 +11,12 @@ namespace ABCodeworld.Gradients.Editor
     /// </summary>
     /// <remarks>
     /// Laid out to match the 1D picker so the two are recognisably the same tool, with one substitution:
-    /// where that window has a gradient bar you drag keys along, this has a cube you rotate. That is not a
-    /// like-for-like swap. A pointer gives two coordinates and a 3D key needs three, so there is nothing
-    /// sensible for dragging a dot to mean — which is why the column that held the 1D picker's two
-    /// draggable swatches holds mode buttons and an Add Key button instead, and why all key editing
-    /// happens in the lists below.
+    /// where that window has a gradient bar you drag keys along, this has a cube you turn and drag keys
+    /// inside. A pointer gives two coordinates and a 3D key needs three, so a drag has to choose a plane
+    /// and a modifier chooses the other axis — see <see cref="GradientCubeElement"/>. That ambiguity is
+    /// also why the column holding the 1D picker's two draggable swatches holds mode buttons here: a dot
+    /// in a cube does not say whether you meant a colour key or an alpha one, so the mode says it
+    /// instead, and only that kind answers to a drag.
     /// </remarks>
     public sealed class GradientPicker3DWindow : EditorWindow
     {
@@ -118,6 +119,8 @@ namespace ABCodeworld.Gradients.Editor
 
             cube = new GradientCubeElement { name = "cube" };
             cubeHost?.Add(cube);
+            cube.RegisterCallback<Gradient3DChangedEvent>(_ => OnWorkingChanged());
+            cube.KeySelected += OnCubeKeySelected;
 
             modeSelector = new KeyModeSelector { name = "modeSelector" };
             modeHost?.Add(modeSelector);
@@ -130,6 +133,8 @@ namespace ABCodeworld.Gradients.Editor
             alphaListHost?.Add(alphaList);
             colorList.Changed += OnWorkingChanged;
             alphaList.Changed += OnWorkingChanged;
+            colorList.KeySelected += OnListKeySelected;
+            alphaList.KeySelected += OnListKeySelected;
 
             libraryPanel = new GradientLibrary3DPanel { GetCurrentGradient = () => working };
             libraryHost?.Add(libraryPanel);
@@ -163,6 +168,23 @@ namespace ABCodeworld.Gradients.Editor
         {
             cube.AlphaMode = isAlpha;
             SyncAddKeyEnabled();
+        }
+
+        /// <summary>
+        /// Points both lists at the key just grabbed in the cube, so the row carrying its coordinates is
+        /// on screen and marked while it is being dragged.
+        /// </summary>
+        private void OnCubeKeySelected(int index, bool isAlpha)
+        {
+            colorList.SetSelected(isAlpha ? -1 : index);
+            alphaList.SetSelected(isAlpha ? index : -1);
+        }
+
+        /// <summary>The same link the other way round: focusing a row rings its dot in the cube.</summary>
+        private void OnListKeySelected(int index, bool isAlpha)
+        {
+            cube.SetSelected(index, isAlpha);
+            OnCubeKeySelected(index, isAlpha);
         }
 
         /// <summary>
