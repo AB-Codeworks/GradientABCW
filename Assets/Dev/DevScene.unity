@@ -179,6 +179,34 @@ MonoBehaviour:
       brightness: 0
       alpha: 0
   asset: {fileID: 11400000, guid: 9347450ca6f7d0e438ccaf59a5216638, type: 2}
+  volume:
+    colorKeys:
+    - color: {r: 1, g: 0, b: 0, a: 1}
+      position: {x: 0.5, y: 0, z: 0.5}
+    - color: {r: 0.1472053, g: 1, b: 0, a: 1}
+      position: {x: 0.5, y: 1, z: 0.5}
+    - color: {r: 0, g: 0.08493006, b: 1, a: 1}
+      position: {x: 0.5, y: 0.5, z: 0}
+    - color: {r: 1, g: 0, b: 0.9015595, a: 1}
+      position: {x: 0.5, y: 0.5, z: 1}
+    alphaKeys:
+    - alpha: 1
+      position: {x: 0.5, y: 0, z: 0.5}
+    - alpha: 1
+      position: {x: 0.5, y: 1, z: 0.5}
+    blendMode: 0
+    falloffPower: 2
+    modulation:
+      bypass: 0
+      reverse: 0
+      repeats: 2
+      repeatMode: 1
+      offset: 0
+      hueShift: 0
+      saturation: 0
+      brightness: 0
+      alpha: 0
+  volumeAsset: {fileID: 11400000, guid: 92e2dbdb60f749040861c17dc30a4d62, type: 2}
 --- !u!4 &570347607
 Transform:
   m_ObjectHideFlags: 0
