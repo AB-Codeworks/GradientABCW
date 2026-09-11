@@ -37,6 +37,17 @@ All notable changes to this package are documented in this file.
 
 ### Changed
 
+- The inspector field now leads with the **final** gradient — modulation included — instead of the
+  unmodulated base. The Modulation section is collapsed by default, so leading with the base meant
+  the one strip most users ever saw was not what the object renders: a hue shift or a repeat count
+  was invisible unless you knew to expand a section you had no reason to suspect. The base is still
+  there, at the end of the foldout under **Unmodulated Base**, where it is useful for comparison
+  while you are actually editing modulation.
+- The collapsed Modulation heading reads **Modulation — active** when modulation actually changes
+  the output, so an authored look can be told apart from a modulated one without expanding it.
+- Library tiles in the picker show each saved gradient modulated, for the same reason: an asset
+  serializes its modulation along with its keys, so a tile drawn from the base was answering a
+  different question from the one a library is asked.
 - `GradientMath.TransformT` and its colour adjustment moved verbatim into `GradientDomain`, shared
   with the 3D core, which applies the same per-axis transform to x, y and z. Both are marked
   `AggressiveInlining`, because they were a private and an internal method of their caller's own
@@ -48,6 +59,14 @@ All notable changes to this package are documented in this file.
   type-agnostic.
 - Project Settings gains a **Default 3D Library Folder**, separate from the 1D one, so the two kinds
   of gradient asset need not share a directory.
+
+Previews of gradients that use modulation will therefore look different from 2.0.0. That is the
+point of the change, but it is worth knowing before diffing screenshots. Nothing about how a
+gradient evaluates has changed, and no API changed.
+
+The picker's key bar deliberately still shows the unmodulated ramp. It is an editing surface: key
+handles sit at base-gradient positions, and drawing the modulated result under them would put the
+handles out of correspondence with what they appear to rest on.
 
 ## [2.0.0]
 
