@@ -82,6 +82,12 @@ kind of surface: its key dots carry each key's own colour, unmodulated.
   of it, leaving the number laid out at zero width. The field still accepted typed input, so it read
   as a rendering fault rather than a layout one. Both key lists now pin their one-character labels
   through a shared `FieldLabels.PinLabel`, which carries the explanation.
+- Key rows in the 3D picker lost their `x`, `y` and `z` labels to an ellipsis once the window was
+  narrowed below its default width. UI Toolkit defaults `flex-shrink` to 1, so the fixed widths those
+  rows were built with are only suggestions the moment a row overflows, and the one-character labels
+  were the first thing squeezed. The axis fields now grow and shrink between a preferred and a
+  minimum width while the colour field and delete button hold their size, so the row adapts rather
+  than being re-tuned in pixels for one window width.
 
 ## [2.0.0]
 

@@ -15,12 +15,12 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         private KeyList3DElement list;
         private GradientABCW3D gradient;
 
-        private void Build(bool isAlpha)
+        private void Build(bool isAlpha, float width = 380f)
         {
-            panelSize = new Vector2(400, 400);
+            panelSize = new Vector2(width + 20f, 400);
             gradient = Test3DGradients.Corners8();
             list = new KeyList3DElement(isAlpha);
-            list.style.width = 380;
+            list.style.width = width;
             list.style.height = 300;
             rootVisualElement.Add(list);
             list.SetGradient(gradient);
@@ -103,6 +103,33 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             simulate.FrameUpdate();
 
             Assert.That(gradient.ColorKeys.Length, Is.EqualTo(before - 1));
+        }
+
+        /// <summary>
+        /// A row that runs out of room used to shrink its children unevenly, and the axis labels — one
+        /// character each — were the first thing to collapse to an ellipsis, so rows read
+        /// <c>x 0.500 … 0.000 z 0.500</c>. Fixed size is only a suggestion in UI Toolkit, which defaults
+        /// <c>flex-shrink</c> to 1, so the row is made to adapt rather than re-tuned in pixels.
+        /// </summary>
+        [Test]
+        public void AxisFieldsStaySquareInANarrowColumn()
+        {
+            // Narrow enough that the preferred widths (60 + 3x58 + 22 plus margins) do not all fit.
+            Build(isAlpha: false, width: 240f);
+
+            foreach (string axis in new[] { "x", "y", "z" })
+            {
+                var field = list.Q<FloatField>(axis);
+                Assume.That(field, Is.Not.Null, $"no {axis} field");
+
+                float labelWidth = field.labelElement.resolvedStyle.width;
+                // A hair under the pin, not exactly it: resolved widths come back rounded to the panel's
+                // pixel grid, so an exact boundary would be a coin flip on a fractional DPI scale.
+                Assert.That(labelWidth, Is.GreaterThan(FieldLabels.SingleCharacterWidth - 1f),
+                    $"the {axis} label was squeezed, so it renders as an ellipsis");
+                Assert.That(field.resolvedStyle.width - labelWidth, Is.GreaterThan(20f),
+                    $"the {axis} input has no width left to draw in");
+            }
         }
 
         [Test]

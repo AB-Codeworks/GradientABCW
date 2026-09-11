@@ -28,7 +28,15 @@ namespace ABCodeworld.Gradients.Editor
     /// </remarks>
     internal sealed class KeyList3DElement : VisualElement
     {
+        /// <summary>
+        /// Preferred width of one axis field, used as its flex basis rather than as a fixed size: the
+        /// three of them grow to share a wide column and shrink to fit a narrow one, down to
+        /// <see cref="AxisFieldMinWidth"/>.
+        /// </summary>
         private const float AxisFieldWidth = 58f;
+
+        /// <summary>Narrowest an axis field may get and still show <c>0.000</c> after its label.</summary>
+        private const float AxisFieldMinWidth = 44f;
 
         private sealed class RowContext
         {
@@ -125,6 +133,7 @@ namespace ABCodeworld.Gradients.Editor
             {
                 var colorField = new ColorField { name = "value", showAlpha = false, showEyeDropper = true };
                 colorField.style.width = 60;
+                colorField.style.flexShrink = 0;
                 colorField.style.marginRight = 4;
                 colorField.RegisterValueChangedCallback(evt =>
                 {
@@ -155,6 +164,7 @@ namespace ABCodeworld.Gradients.Editor
             deleteButton.AddToClassList("abcw-key-list__delete");
             deleteButton.style.width = 22;
             deleteButton.style.height = 20;
+            deleteButton.style.flexShrink = 0;
             deleteButton.style.marginLeft = 4;
             var icon = EditorIcons.Delete;
             if (icon != null)
@@ -168,6 +178,8 @@ namespace ABCodeworld.Gradients.Editor
         {
             var field = new FloatField(axisName) { name = axisName, isDelayed = true, formatString = "0.000" };
             field.style.width = AxisFieldWidth;
+            field.style.minWidth = AxisFieldMinWidth;
+            field.style.flexGrow = 1;
             FieldLabels.PinLabel(field.labelElement, FieldLabels.SingleCharacterWidth);
             field.RegisterValueChangedCallback(evt => SetAxis(context.KeyIndex, axis, evt.newValue));
             row.Add(field);
