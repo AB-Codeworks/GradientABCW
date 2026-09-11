@@ -74,6 +74,15 @@ handles sit at base-gradient positions, and drawing the modulated result under t
 handles out of correspondence with what they appear to rest on. The 3D picker's cube is the same
 kind of surface: its key dots carry each key's own colour, unmodulated.
 
+### Fixed
+
+- The `t` field in the picker's key rows drew its label and nothing else. A `BaseField` lays its
+  label and its input out inside the field's own width, and the default editor stylesheet's
+  `min-width` on `.unity-base-field__label` — sized for an inspector's label column — took all 90px
+  of it, leaving the number laid out at zero width. The field still accepted typed input, so it read
+  as a rendering fault rather than a layout one. Both key lists now pin their one-character labels
+  through a shared `FieldLabels.PinLabel`, which carries the explanation.
+
 ## [2.0.0]
 
 A correctness, performance and structure pass over 1.0.0. Evaluation output is unchanged except

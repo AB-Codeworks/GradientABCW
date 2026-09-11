@@ -128,6 +128,10 @@ namespace ABCodeworld.Gradients.Editor
 
             var timeField = new FloatField("t") { name = "time", isDelayed = true, formatString = "0.0000" };
             timeField.style.width = 90;
+
+            // Without this the "t" label claims all 90px and the number is laid out at zero width: the
+            // field takes typed input but draws nothing. See FieldLabels.PinLabel.
+            FieldLabels.PinLabel(timeField.labelElement, FieldLabels.SingleCharacterWidth);
             timeField.RegisterValueChangedCallback(evt =>
             {
                 int i = context.KeyIndex;

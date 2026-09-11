@@ -29,7 +29,6 @@ namespace ABCodeworld.Gradients.Editor
     internal sealed class KeyList3DElement : VisualElement
     {
         private const float AxisFieldWidth = 58f;
-        private const float AxisLabelWidth = 10f;
 
         private sealed class RowContext
         {
@@ -169,8 +168,7 @@ namespace ABCodeworld.Gradients.Editor
         {
             var field = new FloatField(axisName) { name = axisName, isDelayed = true, formatString = "0.000" };
             field.style.width = AxisFieldWidth;
-            field.labelElement.style.minWidth = AxisLabelWidth;
-            field.labelElement.style.width = AxisLabelWidth;
+            FieldLabels.PinLabel(field.labelElement, FieldLabels.SingleCharacterWidth);
             field.RegisterValueChangedCallback(evt => SetAxis(context.KeyIndex, axis, evt.newValue));
             row.Add(field);
             return field;
