@@ -23,7 +23,7 @@ namespace ABCodeworld.Gradients
         {
             size = Mathf.Clamp(size, GradientLut3D.MinSize, GradientLut3D.MaxSize);
 
-            var tex = new Texture3D(size, size, size, TextureFormat.RGBA32, mipChain: false)
+            var tex = new Texture3D(size, size, size, TextureFormat.RGBA32, false) // no mip chain
             {
                 wrapMode = TextureWrapMode.Clamp,
 
