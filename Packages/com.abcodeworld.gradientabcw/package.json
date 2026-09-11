@@ -2,7 +2,7 @@
   "name": "com.abcodeworld.gradientabcw",
   "version": "2.1.0",
   "displayName": "Gradient ABCW",
-  "description": "32-key colour/alpha gradient with evaluation-time modulation, Burst LUT baking, and a pure UI Toolkit editor.",
+  "description": "A 32-key colour/alpha gradient and a 64-key 3D gradient, both with evaluation-time modulation, Burst LUT baking, and a pure UI Toolkit editor.",
   "unity": "6000.5",
   "dependencies": {
     "com.unity.burst": "1.8.29",
@@ -15,6 +15,11 @@
       "displayName": "Basic Usage",
       "description": "Evaluate a gradient and bake it to a texture.",
       "path": "Samples~/BasicUsage"
+    },
+    {
+      "displayName": "3D Gradient",
+      "description": "Bake a 3D gradient to a Texture3D and evaluate it along a path through the cube.",
+      "path": "Samples~/Gradient3D"
     }
   ],
   "author": {

@@ -8,6 +8,7 @@ namespace ABCodeworld.Gradients.Editor
     public sealed class GradientABCWSettings : ScriptableSingleton<GradientABCWSettings>
     {
         private const string DefaultFolder = "Assets/Gradients";
+        private const string Default3DFolder = "Assets/Gradients3D";
 
         /// <summary>
         /// Width every preview strip is baked at, independent of how wide it is drawn.
@@ -21,6 +22,7 @@ namespace ABCodeworld.Gradients.Editor
         private const int DefaultPreviewResolution = 512;
 
         [SerializeField] private string defaultLibraryFolder = DefaultFolder;
+        [SerializeField] private string default3DLibraryFolder = Default3DFolder;
         [SerializeField] private int previewResolution = DefaultPreviewResolution;
         [SerializeField] private bool pickerLivePreview = true;
 
@@ -30,6 +32,18 @@ namespace ABCodeworld.Gradients.Editor
             set
             {
                 defaultLibraryFolder = string.IsNullOrEmpty(value) ? DefaultFolder : value;
+                Persist();
+            }
+        }
+
+        /// <summary>Where the 3D picker's library panel looks. Separate from the 1D folder, so the two
+        /// kinds of gradient asset do not have to share a directory.</summary>
+        public string Default3DLibraryFolder
+        {
+            get => string.IsNullOrEmpty(default3DLibraryFolder) ? Default3DFolder : default3DLibraryFolder;
+            set
+            {
+                default3DLibraryFolder = string.IsNullOrEmpty(value) ? Default3DFolder : value;
                 Persist();
             }
         }
