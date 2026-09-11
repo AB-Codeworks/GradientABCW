@@ -66,14 +66,18 @@ namespace ABCodeworld.Gradients.Tests.Editor.Runtime
         [Test]
         public void BurstBakeMatchesTheManagedFallbackByteForByte()
         {
-            var g = Test3DGradients.Lattice27();
-            const int size = 8;
+            // Modulated on purpose: an unmodulated gradient skips TransformP and ApplyHsba entirely, so
+            // it cannot catch a divergence that only the modulated path has.
+            var g = Test3DGradients.WithModulation();
+            const int size = 16;
             int count = GradientLut3D.VoxelCount(size);
 
-            using var burst = new NativeArray<Color32>(count, Allocator.Temp);
+            // TempJob, not Temp: this array is handed to a scheduled job, and Temp containers cannot be.
+            // Allocating Temp here threw before the comparison below ever ran.
+            using var burst = new NativeArray<Color32>(count, Allocator.TempJob);
             GradientLut3D.Bake(in g.Native, burst, size, GradientLutOptions.Final);
 
-            using var managed = new NativeArray<Color32>(count, Allocator.Temp);
+            using var managed = new NativeArray<Color32>(count, Allocator.TempJob);
             GradientLut3D.BakeManaged(in g.Native, managed, size, GradientLutOptions.Final);
 
             for (int i = 0; i < count; i++)
@@ -90,7 +94,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.Runtime
             using var scheduled = new NativeArray<float4>(count, Allocator.TempJob);
             GradientJobs3D.ScheduleBake(in g.Native, scheduled, size, GradientLutOptions.Final).Complete();
 
-            using var direct = new NativeArray<float4>(count, Allocator.Temp);
+            using var direct = new NativeArray<float4>(count, Allocator.TempJob);
             GradientLut3D.Bake(in g.Native, direct, size, GradientLutOptions.Final);
 
             for (int i = 0; i < count; i++)

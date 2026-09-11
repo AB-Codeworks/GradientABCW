@@ -11,16 +11,29 @@ namespace ABCodeworld.Gradients
     [Serializable]
     public struct GradientModulation : IEquatable<GradientModulation>
     {
+        /// <summary>Skips modulation entirely without discarding the values below.</summary>
         public bool bypass;
+
+        /// <summary>Samples the gradient back to front. For a 3D gradient this mirrors all three axes at
+        /// once, which flips handedness rather than spinning the cube.</summary>
         public bool reverse;
+
+        /// <summary>How many times the gradient tiles across the domain, under <see cref="repeatMode"/>.
+        /// For a 3D gradient the count applies per axis, so 2 tiles the cube eight times over.</summary>
         [Min(1e-5f)] public float repeats;
+
+        /// <summary>What happens past the end of one tile: hold, wrap round, or fold back.</summary>
         public RepeatMode repeatMode;
+
+        /// <summary>Slides the sampling position along the domain before repeating is applied.</summary>
         [Range(0f, 1f)] public float offset;
 
         /// <summary>Hue shift in turns (-1..1 = a full spectrum shift backward/forward).</summary>
         [Range(-1f, 1f)] public float hueShift;
 
         /// <summary>-1 = greyscale, 0 = unchanged, 1 = fully (over)saturated.</summary>
+        /// <remarks>A grey is left alone in both directions: it has no hue to widen or collapse, and the
+        /// one <c>RgbToHsv</c> reports for it is an artefact of which channel rounded highest.</remarks>
         [Range(-1f, 1f)] public float saturation;
 
         /// <summary>-1 = black, 0 = unchanged, 1 = white.</summary>
@@ -29,6 +42,7 @@ namespace ABCodeworld.Gradients
         /// <summary>-1 = transparent, 0 = unchanged, 1 = opaque.</summary>
         [Range(-1f, 1f)] public float alpha;
 
+        /// <summary>Every parameter at its neutral value — modulation that changes nothing.</summary>
         public static GradientModulation Identity => new GradientModulation
         {
             bypass = false,

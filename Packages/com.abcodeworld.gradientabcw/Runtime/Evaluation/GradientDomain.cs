@@ -83,6 +83,41 @@ namespace ABCodeworld.Gradients
         }
 
         /// <summary>
+        /// Chroma, relative to the brightest channel, below which a colour counts as grey and its hue as
+        /// meaningless. Two orders of magnitude above the evaluation noise that produced the bug below,
+        /// and two and a half below the smallest chroma an 8-bit channel can even represent (1/255 of a
+        /// mid grey is about 5.7e-3), so no colour a bake can distinguish is caught by it.
+        /// </summary>
+        private const float AchromaticChroma = 1e-5f;
+
+        /// <summary>
+        /// Whether <paramref name="rgb"/> has a hue at all — that is, whether its channels differ by more
+        /// than evaluation noise.
+        /// </summary>
+        /// <remarks>
+        /// A grey has no hue, and <see cref="ColorSpaceMath.RgbToHsv"/> cannot say so: its three-way
+        /// dominant-channel branch resolves on whichever of r, g and b happens to be a last-ulp larger, so
+        /// the hue it reports for a grey is whichever of the six sectors the rounding fell into. That is
+        /// harmless as long as saturation is left alone, because <c>HsvToRgb</c> reconstructs the same grey
+        /// from any hue — but a positive saturation promotes that arbitrary hue to a fully saturated
+        /// colour, and then the answer depends on nothing but float rounding.
+        /// <para>
+        /// This was not theoretical. A 3D gradient's grey diagonal baked red through the managed loop and
+        /// cyan through the Burst job, 43/255 apart, because the two rounded the evaluation differently
+        /// enough to land in different sectors — nine cells of a 16-cubed table, all of them on or beside
+        /// the diagonal, each picking one of exactly six hues. Neither answer was more correct than the
+        /// other; both were arbitrary. Saturating a grey is a no-op and shifting its hue is a no-op, so
+        /// skipping the round trip is both the fix and the definition.
+        /// </para>
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool HasHue(float3 rgb)
+        {
+            float max = math.cmax(rgb);
+            return max > 0f && (max - math.cmin(rgb)) > AchromaticChroma * max;
+        }
+
+        /// <summary>
         /// Applies hue, saturation, brightness and alpha adjustment to one sampled colour.
         /// <paramref name="needsHsv"/> is precomputed by the caller's snapshot and is non-zero only when
         /// hue or saturation is actually adjusted.
@@ -95,7 +130,7 @@ namespace ABCodeworld.Gradients
             // Only hue and saturation need HSV. Brightness and alpha are plain lerps in RGB, so dimming or
             // fading a gradient — a common case on its own — no longer pays for a full round trip per
             // sample. When hue and saturation are both neutral the round trip was returning its input.
-            if (needsHsv != 0)
+            if (needsHsv != 0 && HasHue(rgb))
             {
                 float3 hsv = ColorSpaceMath.RgbToHsv(rgb);
 
