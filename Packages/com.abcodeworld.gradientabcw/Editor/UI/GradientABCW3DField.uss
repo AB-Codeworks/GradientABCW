@@ -6,12 +6,12 @@
     flex-shrink: 0;
 }
 
+/* The last render keeps its right margin. USS has no structural selectors — :last-child,
+   :first-child and :nth-child are all CSS-only, and UI Toolkit warns and discards the rule — and the
+   three pixels are invisible: a flex-grow spacer follows the strip in the field header, and a
+   vertical button row follows it in a library tile. */
 .abcw-cube-preview {
     margin-right: 3px;
-}
-
-.abcw-cube-strip > .abcw-cube-preview:last-child {
-    margin-right: 0;
 }
 
 .abcw-falloff-row--disabled {
