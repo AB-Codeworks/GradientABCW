@@ -138,12 +138,12 @@ namespace ABCodeworld.Gradients.Editor
 
             libraryPanel = new GradientLibrary3DPanel { GetCurrentGradient = () => working };
             libraryHost?.Add(libraryPanel);
-            libraryPanel.Loaded += g => { working = g; RefreshAllViews(); OnWorkingChanged(); };
+            libraryPanel.Loaded += AdoptWorking;
 
             actionsPanel = new GradientActions3DPanel();
             actionsHost?.Add(actionsPanel);
             actionsPanel.Changed += OnWorkingChanged;
-            actionsPanel.Sampled += g => { working = g; RefreshAllViews(); OnWorkingChanged(); };
+            actionsPanel.Sampled += AdoptWorking;
 
             okButton?.RegisterCallback<ClickEvent>(_ => Accept());
             cancelButton?.RegisterCallback<ClickEvent>(_ => Cancel());
@@ -212,6 +212,30 @@ namespace ABCodeworld.Gradients.Editor
         private void SyncAddKeyEnabled() =>
             modeSelector.SetCanAddKey(working != null && (modeSelector.IsAlpha ? working.CanAddAlphaKey : working.CanAddColorKey));
 
+        /// <summary>
+        /// Takes on a gradient that arrived whole — loaded from the library, or rebuilt by sampling — in
+        /// place of the one being edited.
+        /// </summary>
+        /// <remarks>
+        /// Distinct from <see cref="OnWorkingChanged"/>, and the distinction is the whole point.
+        /// That one announces an edit to the gradient the panels already hold, so re-reading values is
+        /// enough. This one hands them a <em>different instance</em>, and every panel caches its own
+        /// reference: <see cref="KeyList3DElement.Refresh"/> re-reads the gradient it was last given, and
+        /// <see cref="GradientActions3DPanel"/> mutates the one it was last given. Announcing the swap
+        /// without <see cref="RefreshAllViews"/> would leave both of them editing an object nobody would
+        /// read again, which is exactly what the flat picker did until it was named there too.
+        /// </remarks>
+        private void AdoptWorking(GradientABCW3D replacement)
+        {
+            working = replacement;
+            RefreshAllViews();
+            OnWorkingChanged();
+        }
+
+        /// <summary>
+        /// Announces an edit to the gradient the panels already hold. For a replacement, use
+        /// <see cref="AdoptWorking"/>.
+        /// </summary>
         private void OnWorkingChanged()
         {
             cube.Gradient = working;

@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using ABCodeworld.Gradients.Editor;
 using ABCodeworld.Gradients.Tests.Editor.Support;
+using Object = UnityEngine.Object;
 
 namespace ABCodeworld.Gradients.Tests.Editor.UI
 {
@@ -243,6 +244,81 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             Assert.That(cube.SelectedIsAlpha, Is.False);
             Assert.That(window.rootVisualElement.Query(className: "abcw-key-list__row--selected").ToList(),
                 Is.Not.Empty, "the colour key's row should be marked");
+        }
+
+        /// <summary>
+        /// Sampling does not edit the gradient, it swaps in a different instance. A key list still
+        /// pointing at the old one edits an object nobody will read again, so a row you type into looks
+        /// like it worked and changes nothing. The flat picker shipped with exactly that bug.
+        /// </summary>
+        [Test]
+        public void EditingAKeyAfterSamplingReachesTheSampledGradient()
+        {
+            window.BeginSession(Test3DGradients.Corners8(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            var tex = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            for (int y = 0; y < 8; y++)
+                for (int x = 0; x < 8; x++)
+                    tex.SetPixel(x, y, new Color(x / 7f, y / 7f, 0.5f));
+            tex.Apply(false);
+
+            window.rootVisualElement.Q<ObjectField>("texture").value = tex;
+            simulate.Click(window.rootVisualElement.Q<Button>("textureScatter"));
+            simulate.FrameUpdate();
+
+            // Eight keys became sixteen, so a list still showing eight rows is showing the wrong gradient.
+            Assume.That(window.Working.ColorKeys.Length, Is.EqualTo(ColorSampler3D.DefaultKeyCount));
+
+            var xField = window.rootVisualElement.Q<FloatField>("x");
+            Assume.That(xField, Is.Not.Null);
+            xField.value = 0.137f;
+            simulate.FrameUpdate();
+
+            Assert.That(window.Working.ColorKeys[0].position.x, Is.EqualTo(0.137f).Within(1e-4f),
+                "the row wrote to the gradient the sample had already replaced");
+
+            Object.DestroyImmediate(tex);
+        }
+
+        /// <summary>
+        /// The same staleness one panel over: loading from the library replaces the gradient, and the
+        /// actions panel keeps its own reference to whatever it was handed last.
+        /// </summary>
+        [Test]
+        public void SettingBlendModeAfterLoadingReachesTheLoadedGradient()
+        {
+            using var tempFolder = new TempAssetFolder("Picker3DLibraryAdopt");
+            window.BeginSession(Test3DGradients.Corners8(), new GradientPicker3DSession());
+            simulate.FrameUpdate();
+
+            window.rootVisualElement.Q<TextField>("folder").value = tempFolder.Path;
+            simulate.Click(window.rootVisualElement.Q<Button>("apply"));
+            simulate.FrameUpdate();
+
+            window.rootVisualElement.Q<TextField>("saveName").value = "Adopt3DTest";
+            simulate.Click(window.rootVisualElement.Q<Button>("save"));
+            simulate.FrameUpdate();
+
+            var tile = window.rootVisualElement.Q(className: "abcw-library__tile");
+            Assume.That(tile, Is.Not.Null);
+            simulate.Click(FindButtonByText(tile, "Load"));
+            simulate.FrameUpdate();
+
+            Assume.That(window.Working.BlendMode, Is.EqualTo(BlendMode.Smooth));
+
+            window.rootVisualElement.Q<Toggle>("stepped").value = true;
+            simulate.FrameUpdate();
+
+            Assert.That(window.Working.BlendMode, Is.EqualTo(BlendMode.Stepped),
+                "the actions panel still held the gradient the load had replaced");
+        }
+
+        private static Button FindButtonByText(VisualElement root, string text)
+        {
+            Button found = null;
+            root.Query<Button>().ForEach(b => { if (found == null && b.text == text) found = b; });
+            return found;
         }
 
         /// <summary>
