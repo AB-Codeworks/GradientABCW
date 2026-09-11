@@ -2,7 +2,53 @@
 
 All notable changes to this package are documented in this file.
 
-## [2.1.0]
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Fixed
+
+- **Modulation no longer invents a hue for a grey.** `RgbToHsv` reports a hue for an achromatic
+  colour anyway — its three-way dominant-channel branch resolves on whichever of r, g and b is a
+  last-ulp larger — and a positive saturation then promoted that arbitrary hue to a fully saturated
+  colour. A modulated 3D gradient's grey diagonal baked red through the managed loop and cyan
+  through the Burst job, 43/255 apart across nine cells of a 16-cubed table, with neither answer
+  more correct than the other. Saturating a grey is now a no-op, as is shifting its hue. Only
+  colours whose channels differ by less than 1e-5 of the brightest are affected, which is over two
+  orders of magnitude below what an 8-bit channel can represent.
+- `GradientLut3DTests.BurstBakeMatchesTheManagedFallbackByteForByte` allocated `Allocator.Temp` and
+  handed it to a scheduled job, so it threw before it could compare anything. The guard against
+  Burst/managed divergence had never actually run. Same fix in `ScheduledBakeMatchesTheManagedBake`.
+
+### Added
+
+- `GradientABCW.PrepareNative()`, the 1D counterpart of `GradientABCW3D.PrepareNative()`, so a
+  caller scheduling a bake can force the lazy — and not thread-safe — rebuild of `Native` onto the
+  main thread first.
+- A 1D Burst-vs-managed bake guard, which the package did not have.
+- MIT licence, and the package metadata that goes with publishing: `license`, `licensesUrl`,
+  `documentationUrl`, `changelogUrl`, `keywords`, `author.url`.
+- The three test-framework packages the test assemblies reference are now declared as dependencies,
+  so adding this package to `testables` resolves instead of failing.
+- A GitHub Actions workflow running the EditMode and PlayMode suites.
+
+### Changed
+
+- `Runtime/csc.rsp` and `Editor/csc.rsp` no longer force `-warnaserror+` on consumers. A consumer on
+  a different Unity or Burst patch would have got a hard compile error inside immutable package
+  code. Both test assemblies keep it.
+- Narrowed the public surface before it is frozen by a tag: `ColorSpaceMath`, both property drawers
+  and the two `float4` `Bake` overloads are now internal, and the unused `NativeGradient.MaxKeys` /
+  `NativeGradient3D.MaxKeys` aliases are gone.
+
+### Removed
+
+- Dead members: `GradientCubeElement.ResetRotation`, `GradientBarElement.HoverTime` (written on
+  every pointer move, read by nothing), `modBypass` in both native snapshots (bypass is already
+  folded into `modEffective`), and four unused `EditorIcons`.
+
+## [2.1.0] - 2026-09-11
 
 ### Added
 
@@ -89,7 +135,7 @@ kind of surface: its key dots carry each key's own colour, unmodulated.
   minimum width while the colour field and delete button hold their size, so the row adapts rather
   than being re-tuned in pixels for one window width.
 
-## [2.0.0]
+## [2.0.0] - 2026-09-06
 
 A correctness, performance and structure pass over 1.0.0. Evaluation output is unchanged except
 where called out under "Visual changes" below.
@@ -175,7 +221,7 @@ because the Editor's Mono JIT will not inline it).
 - `GradientLut.ScheduleBake`/`ScheduleEvaluate` callers move to `GradientJobs`.
 - `GradientMath.SrgbToLinear` callers move to `ColorSpaceMath`.
 
-## [1.0.0]
+## [1.0.0] - 2026-09-03
 
 Extracted from the VertexColourAnims project and rebuilt from the ground up:
 
@@ -191,3 +237,8 @@ Extracted from the VertexColourAnims project and rebuilt from the ground up:
   (seeded) mesh/texture colour sampling — no IMGUI anywhere in the package.
 - A test suite covering the runtime maths (golden-tested against the legacy implementation),
   serialization, LUT baking, and the UI Toolkit editor components.
+
+[Unreleased]: https://github.com/AB-Codeworks/GradientABCW/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/AB-Codeworks/GradientABCW/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/AB-Codeworks/GradientABCW/compare/v1.0.0...v2.0.0
+[1.0.0]: https://github.com/AB-Codeworks/GradientABCW/releases/tag/v1.0.0

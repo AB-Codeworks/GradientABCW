@@ -8,7 +8,15 @@ namespace ABCodeworld.Gradients.Editor
     /// untyped payload. UI Toolkit dispatches by type, so this is what lets a container hold both a 1D and
     /// a 3D field without either one's listeners waking for the other's edits.
     /// </remarks>
-    internal sealed class Gradient3DChangedEvent : EventBase<Gradient3DChangedEvent>
+    /// <remarks>
+    /// Public because <see cref="GradientABCWField"/> and <see cref="GradientABCW3DField"/> are, and this
+    /// is the only signal either of them gives for an edit made in place. UI Toolkit's own
+    /// <c>ChangeEvent&lt;T&gt;</c> fires when the field is handed a different gradient instance, by design
+    /// — it cannot fire for a key dragged inside the instance the field already holds, which is most of
+    /// what anyone does to a gradient. An internal event type here would have left every consumer of the
+    /// public field unable to observe that at all.
+    /// </remarks>
+    public sealed class Gradient3DChangedEvent : EventBase<Gradient3DChangedEvent>
     {
         public enum ChangeKind { Keys, BlendMode, Falloff, Modulation, Replaced }
 

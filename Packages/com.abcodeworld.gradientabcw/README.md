@@ -13,8 +13,11 @@ Two kinds, sharing all of that: **`GradientABCW`**, a 32-key colour/alpha gradie
 Add the package via git URL, pointing at the subfolder it lives in:
 
 ```
-https://github.com/AB-Codeworks/GradientABCW.git?path=Packages/com.abcodeworld.gradientabcw
+https://github.com/AB-Codeworks/GradientABCW.git?path=Packages/com.abcodeworld.gradientabcw#v2.1.0
 ```
+
+The `#v2.1.0` suffix pins a release. Drop it to track the default branch instead, which moves under
+you as development continues.
 
 In the Package Manager window: **+** → **Add package from git URL...** → paste the URL above.
 

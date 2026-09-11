@@ -230,14 +230,6 @@ namespace ABCodeworld.Gradients.Editor
             ApplyViewMode();
         }
 
-        /// <summary>Returns the cube to the rotation it opens at.</summary>
-        public void ResetRotation()
-        {
-            yaw = DefaultYaw;
-            pitch = DefaultPitch;
-            OnRotationChanged();
-        }
-
         /// <summary>
         /// Marks a key as the selected one, or clears the selection with a negative index. Kept in step
         /// with the key lists by the picker window, in both directions.

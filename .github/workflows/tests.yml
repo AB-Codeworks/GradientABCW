@@ -1,0 +1,66 @@
+# Runs the package's EditMode and PlayMode suites on every push and pull request.
+#
+# Unity in CI needs an activated licence, which cannot be committed. Add these repository secrets
+# before enabling the workflow (Settings -> Secrets and variables -> Actions):
+#
+#   UNITY_LICENSE   contents of the .ulf file from a Personal licence activation
+#   UNITY_EMAIL     the Unity account address
+#   UNITY_PASSWORD  that account's password
+#
+# See https://game.ci/docs/github/activation for how to produce UNITY_LICENSE.
+#
+# The EditMode suite includes UI tests that construct real EditorWindows, so the container must NOT
+# run with -nographics: without a graphics device every EditorWindowUITestFixture fails at once in
+# OneTimeSetUp. game-ci's editor images ship a virtual display, which is why this works headless.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.testMode }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        testMode: [editmode, playmode]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ matrix.testMode }}-${{ hashFiles('Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-${{ matrix.testMode }}-
+            Library-
+
+      - uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: 6000.5.10f1
+          testMode: ${{ matrix.testMode }}
+          artifactsPath: ${{ matrix.testMode }}-artifacts
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: ${{ matrix.testMode }} results
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.testMode }}-results
+          path: ${{ steps.tests.outputs.artifactsPath }}

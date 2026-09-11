@@ -7,19 +7,17 @@ namespace ABCodeworld.Gradients
     /// </summary>
     public unsafe struct NativeGradient
     {
-        public const int MaxKeys = GradientABCW.MaxKeys;
 
-        internal fixed float colorTimes[MaxKeys];
-        internal fixed float colorR[MaxKeys];
-        internal fixed float colorG[MaxKeys];
-        internal fixed float colorB[MaxKeys];
-        internal fixed float alphaTimes[MaxKeys];
-        internal fixed float alphaValues[MaxKeys];
+        internal fixed float colorTimes[GradientABCW.MaxKeys];
+        internal fixed float colorR[GradientABCW.MaxKeys];
+        internal fixed float colorG[GradientABCW.MaxKeys];
+        internal fixed float colorB[GradientABCW.MaxKeys];
+        internal fixed float alphaTimes[GradientABCW.MaxKeys];
+        internal fixed float alphaValues[GradientABCW.MaxKeys];
         internal int colorCount;
         internal int alphaCount;
         internal byte stepped;
 
-        internal byte modBypass;
         internal byte modReverse;
         internal float modRepeats;
         internal byte modRepeatMode;
@@ -67,7 +65,6 @@ namespace ABCodeworld.Gradients
             native.stepped = (byte)(gradient.BlendMode == BlendMode.Stepped ? 1 : 0);
 
             var m = gradient.Modulation;
-            native.modBypass = (byte)(m.bypass ? 1 : 0);
             native.modReverse = (byte)(m.reverse ? 1 : 0);
             native.modRepeats = m.repeats;
             native.modRepeatMode = (byte)m.repeatMode;

@@ -13,7 +13,7 @@ namespace ABCodeworld.Gradients.Editor
     /// content at all.
     /// </remarks>
     [CustomPropertyDrawer(typeof(GradientABCW3D))]
-    public sealed class GradientABCW3DPropertyDrawer : PropertyDrawer
+    internal sealed class GradientABCW3DPropertyDrawer : PropertyDrawer
     {
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {

@@ -77,18 +77,33 @@ namespace ABCodeworld.Gradients
         /// An unmanaged snapshot of this gradient for Burst evaluation, rebuilt only when
         /// <see cref="Version"/> changes.
         /// </summary>
-        /// <remarks>Rebuilds lazily and is therefore not safe to touch from multiple threads at once.</remarks>
+        /// <remarks>Rebuilds lazily and is therefore not safe to touch from multiple threads at once.
+        /// Call <see cref="PrepareNative"/> on the main thread before scheduling work that reads it.</remarks>
         public ref readonly NativeGradient Native
         {
             get
             {
-                if (nativeVersion != version)
-                {
-                    nativeCache = NativeGradient.From(this);
-                    nativeVersion = version;
-                }
+                PrepareNative();
                 return ref nativeCache;
             }
+        }
+
+        /// <summary>
+        /// Brings <see cref="Native"/> up to date, so a later read of it cannot trigger a rebuild.
+        /// </summary>
+        /// <remarks>
+        /// The counterpart of <see cref="GradientABCW3D.PrepareNative"/>, and it exists for the same
+        /// reason: the lazy rebuild behind <see cref="Native"/> is not thread-safe, so a caller handing
+        /// a bake to the job system wants the rebuild to have already happened. Touching this first, on
+        /// the main thread, makes the subsequent read a plain field access.
+        /// </remarks>
+        public void PrepareNative()
+        {
+            if (nativeVersion == version)
+                return;
+
+            nativeCache = NativeGradient.From(this);
+            nativeVersion = version;
         }
 
         public ReadOnlySpan<ColorKey> ColorKeys => colorKeys;

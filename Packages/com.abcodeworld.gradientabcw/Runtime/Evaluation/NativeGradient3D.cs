@@ -25,18 +25,17 @@ namespace ABCodeworld.Gradients
     /// </remarks>
     public unsafe struct NativeGradient3D
     {
-        public const int MaxKeys = GradientABCW3D.MaxKeys;
 
-        internal fixed float colorX[MaxKeys];
-        internal fixed float colorY[MaxKeys];
-        internal fixed float colorZ[MaxKeys];
-        internal fixed float colorR[MaxKeys];
-        internal fixed float colorG[MaxKeys];
-        internal fixed float colorB[MaxKeys];
-        internal fixed float alphaX[MaxKeys];
-        internal fixed float alphaY[MaxKeys];
-        internal fixed float alphaZ[MaxKeys];
-        internal fixed float alphaValues[MaxKeys];
+        internal fixed float colorX[GradientABCW3D.MaxKeys];
+        internal fixed float colorY[GradientABCW3D.MaxKeys];
+        internal fixed float colorZ[GradientABCW3D.MaxKeys];
+        internal fixed float colorR[GradientABCW3D.MaxKeys];
+        internal fixed float colorG[GradientABCW3D.MaxKeys];
+        internal fixed float colorB[GradientABCW3D.MaxKeys];
+        internal fixed float alphaX[GradientABCW3D.MaxKeys];
+        internal fixed float alphaY[GradientABCW3D.MaxKeys];
+        internal fixed float alphaZ[GradientABCW3D.MaxKeys];
+        internal fixed float alphaValues[GradientABCW3D.MaxKeys];
         internal int colorCount;
         internal int alphaCount;
         internal byte stepped;
@@ -53,7 +52,6 @@ namespace ABCodeworld.Gradients
         /// </summary>
         internal byte falloffIsSquared;
 
-        internal byte modBypass;
         internal byte modReverse;
         internal float modRepeats;
         internal byte modRepeatMode;
@@ -109,7 +107,6 @@ namespace ABCodeworld.Gradients
             native.falloffIsSquared = (byte)(falloff == 2f ? 1 : 0);
 
             var m = gradient.Modulation;
-            native.modBypass = (byte)(m.bypass ? 1 : 0);
             native.modReverse = (byte)(m.reverse ? 1 : 0);
             native.modRepeats = m.repeats;
             native.modRepeatMode = (byte)m.repeatMode;

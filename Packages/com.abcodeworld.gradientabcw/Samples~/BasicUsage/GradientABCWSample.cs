@@ -7,6 +7,13 @@ namespace ABCodeworld.Gradients.Samples
     [RequireComponent(typeof(Renderer))]
     public sealed class GradientABCWSample : MonoBehaviour
     {
+        /// <summary>
+        /// The texture property to tint. <c>_BaseMap</c> is URP/HDRP's name; the Built-in pipeline's
+        /// Standard shader calls it <c>_MainTex</c>. Set it to whatever the material's shader declares —
+        /// a name no shader has binds nothing, silently.
+        /// </summary>
+        [SerializeField] private string textureProperty = "_BaseMap";
+
         [SerializeField] private GradientABCW gradient = GradientABCW.CreateDefault();
         [SerializeField] private Light tintedLight;
         [SerializeField] private float cyclesPerSecond = 0.2f;
@@ -22,7 +29,7 @@ namespace ABCodeworld.Gradients.Samples
 
             bakedTexture = GradientTextureUtility.CreateTexture(gradient, 256, GradientLutOptions.Project(final: true));
             targetRenderer.GetPropertyBlock(propertyBlock);
-            propertyBlock.SetTexture("_BaseMap", bakedTexture);
+            propertyBlock.SetTexture(Shader.PropertyToID(textureProperty), bakedTexture);
             targetRenderer.SetPropertyBlock(propertyBlock);
         }
 

@@ -111,7 +111,7 @@ namespace ABCodeworld.Gradients
             }
         }
 
-        public static void Bake(in NativeGradient native, NativeArray<float4> dst, GradientLutOptions options)
+        internal static void Bake(in NativeGradient native, NativeArray<float4> dst, GradientLutOptions options)
         {
             int count = dst.Length;
             for (int i = 0; i < count; i++)

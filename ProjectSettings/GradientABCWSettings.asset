@@ -13,5 +13,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: ABCodeworld.Gradients.Editor::ABCodeworld.Gradients.Editor.GradientABCWSettings
   defaultLibraryFolder: Assets/Gradients
+  default3DLibraryFolder: Assets/Gradients3D
   previewResolution: 512
   pickerLivePreview: 1

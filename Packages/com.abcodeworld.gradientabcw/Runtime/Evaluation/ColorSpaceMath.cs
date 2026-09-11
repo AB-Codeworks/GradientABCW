@@ -11,7 +11,7 @@ namespace ABCodeworld.Gradients
     /// are deliberately verbatim ports: a "cleaner" reformulation would drift from Unity's results, and
     /// the golden tests compare against an oracle that uses Unity's versions.
     /// </remarks>
-    public static class ColorSpaceMath
+    internal static class ColorSpaceMath
     {
         /// <summary>Ported from <c>UnityEngine.Color.RGBToHSV</c> so hue/saturation/value match Unity's own conversion.</summary>
         internal static float3 RgbToHsv(float3 c)
@@ -95,6 +95,6 @@ namespace ABCodeworld.Gradients
             return math.pow(value, 2.4f);
         }
 
-        public static float3 SrgbToLinear(float3 c) => new float3(GammaToLinear(c.x), GammaToLinear(c.y), GammaToLinear(c.z));
+        internal static float3 SrgbToLinear(float3 c) => new float3(GammaToLinear(c.x), GammaToLinear(c.y), GammaToLinear(c.z));
     }
 }

@@ -50,8 +50,6 @@ namespace ABCodeworld.Gradients.Editor
             }
         }
 
-        public float HoverTime { get; private set; }
-
         public event Action<int, bool> KeySelected;
 
         public GradientBarElement()
@@ -92,7 +90,6 @@ namespace ABCodeworld.Gradients.Editor
             this.AddManipulator(dragManipulator);
 
             RegisterCallback<PointerDownEvent>(OnBarPointerDown);
-            RegisterCallback<PointerMoveEvent>(evt => HoverTime = GetTimeFromLocalPosition(evt.localPosition));
             RegisterCallback<KeyDownEvent>(OnKeyDown);
             // A resize moves handles but changes no key data, so it takes the cheap reposition path rather
             // than re-deriving every handle's colour and selection state and re-assigning the preview.

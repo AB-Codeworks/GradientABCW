@@ -140,7 +140,7 @@ namespace ABCodeworld.Gradients
                 dst[i] = GradientLut.ToColor32(SampleAt(in native, VoxelPosition(i, size), in options));
         }
 
-        public static void Bake(in NativeGradient3D native, NativeArray<float4> dst, int size, GradientLutOptions options)
+        internal static void Bake(in NativeGradient3D native, NativeArray<float4> dst, int size, GradientLutOptions options)
         {
             ValidateDestination(dst.Length, size);
 

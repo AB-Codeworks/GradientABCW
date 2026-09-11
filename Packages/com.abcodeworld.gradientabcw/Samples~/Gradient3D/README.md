@@ -8,7 +8,10 @@ path through the cube.
 
 Use this as a starting point for:
 
-- Baking a 3D gradient to a `Texture3D` and sampling it in a shader. Correct the position first:
+- Baking a 3D gradient to a `Texture3D` and sampling it in a shader. The package ships no shader —
+  it is render-pipeline agnostic — so this is the pair of lines to add to your own, which must
+  declare `TEXTURE3D(_GradientVolume)` and `float4 _GradientVolumeScaleOffset`. Correct the
+  position first:
 
   ```hlsl
   float3 uvw = p * _GradientVolumeScaleOffset.x + _GradientVolumeScaleOffset.y;

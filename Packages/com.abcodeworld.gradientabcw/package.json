@@ -4,11 +4,28 @@
   "displayName": "Gradient ABCW",
   "description": "A 32-key colour/alpha gradient and a 64-key 3D gradient, both with evaluation-time modulation, Burst LUT baking, and a pure UI Toolkit editor.",
   "unity": "6000.5",
+  "license": "MIT",
+  "licensesUrl": "https://github.com/AB-Codeworks/GradientABCW/blob/main/Packages/com.abcodeworld.gradientabcw/LICENSE.md",
+  "documentationUrl": "https://github.com/AB-Codeworks/GradientABCW/blob/main/Packages/com.abcodeworld.gradientabcw/README.md",
+  "changelogUrl": "https://github.com/AB-Codeworks/GradientABCW/blob/main/Packages/com.abcodeworld.gradientabcw/CHANGELOG.md",
+  "keywords": [
+    "gradient",
+    "color",
+    "colour",
+    "lut",
+    "texture3d",
+    "burst",
+    "ui-toolkit",
+    "editor-tool"
+  ],
   "dependencies": {
     "com.unity.burst": "1.8.29",
     "com.unity.collections": "6.5.0",
     "com.unity.mathematics": "1.4.0",
-    "com.unity.modules.uielements": "1.0.0"
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.test-framework": "1.5.1",
+    "com.unity.test-framework.performance": "3.1.0",
+    "com.unity.ui.test-framework": "1.0.0"
   },
   "samples": [
     {
@@ -23,6 +40,7 @@
     }
   ],
   "author": {
-    "name": "AB Codeworld"
+    "name": "AB Codeworld",
+    "url": "https://github.com/AB-Codeworks/GradientABCW"
   }
 }

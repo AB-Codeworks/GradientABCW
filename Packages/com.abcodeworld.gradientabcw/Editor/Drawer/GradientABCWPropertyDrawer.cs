@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 namespace ABCodeworld.Gradients.Editor
 {
     [CustomPropertyDrawer(typeof(GradientABCW))]
-    public sealed class GradientABCWPropertyDrawer : PropertyDrawer
+    internal sealed class GradientABCWPropertyDrawer : PropertyDrawer
     {
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
