@@ -186,6 +186,20 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         /// pointing at the old one edits an object nobody will read again, so a row you type into looks
         /// like it worked and changes nothing.
         /// </summary>
+        /// <remarks>
+        /// This covers the flow, not a single line, and it is worth being exact about how weak that makes
+        /// it. Two things independently rebind the key list to the new gradient: RefreshAllViews inside
+        /// AdoptWorking, and the same call on activeTabChanged. Removing either one on its own leaves this
+        /// test green, because a sample here is necessarily followed by a switch back to Keys — the row
+        /// being typed into does not exist while its tab is hidden — and that switch repairs what the
+        /// sample left stale. Only removing both reds it, on its own message, 0.137 against 0.0.
+        /// <para>
+        /// So read it as end-to-end cover for sample-then-edit rather than as the guard on AdoptWorking.
+        /// That guard is <see cref="SettingBlendModeAfterLoadingReachesTheLoadedGradient"/>, which reads
+        /// a panel rather than a virtualised row, needs no tab switch after the replacement, and does fail
+        /// the moment RefreshAllViews leaves AdoptWorking.
+        /// </para>
+        /// </remarks>
         [Test]
         public void EditingAKeyAfterSamplingReachesTheSampledGradient()
         {
@@ -205,8 +219,13 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             // Seven keys became four, so a list that still shows seven rows is showing the wrong gradient.
             Assume.That(window.Working.ColorKeys.Length, Is.EqualTo(4));
 
+            // Back to Keys: the row being typed into is a ListView row, and a ListView with no size
+            // virtualises none, so the control does not exist while its tab is hidden. Sampling had to
+            // happen on Rebuild, so the two halves of this test cannot share a tab.
+            SelectTab(KeysTab);
+
             var timeField = window.rootVisualElement.Q<FloatField>("time");
-            Assume.That(timeField, Is.Not.Null);
+            Assert.That(timeField, Is.Not.Null, "the Keys tab is front, so its first row must exist");
             timeField.value = 0.137f;
             simulate.FrameUpdate();
 
@@ -266,17 +285,6 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         private const int LibraryTab = 4;
 
         /// <summary>
-        /// Waits for CreateGUI, which runs on the window's first layout pass and may need more than one
-        /// frame, then brings a tab to the front and lets it lay out.
-        /// </summary>
-        /// <remarks>
-        /// UQuery finds elements inside a hidden tab perfectly well, so reading a value or setting one
-        /// needs no help at all. Clicking does: simulate.Click is positional, and a hidden element has a
-        /// zero worldBound, so the click lands at panel (0, 0) and hits whatever is there — silently,
-        /// with no exception. The same shape as expanding a Foldout before clicking into it in
-        /// GradientABCWPropertyDrawerTests.
-        /// </remarks>
-        /// <summary>
         /// Clicks a named button, having first proved it is actually on screen.
         /// </summary>
         /// <remarks>
@@ -298,6 +306,23 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             simulate.FrameUpdate();
         }
 
+        /// <summary>
+        /// Waits for CreateGUI, which runs on the window's first layout pass and may need more than one
+        /// frame, then brings a tab to the front and lets it lay out.
+        /// </summary>
+        /// <remarks>
+        /// UQuery does find a plain element inside a hidden tab, so for most controls this is only needed
+        /// before a click — simulate.Click is positional, and a hidden element has a zero worldBound, so
+        /// the click lands at panel (0, 0) and hits whatever is there, silently and without an exception.
+        /// <para>
+        /// A row inside a ListView is the exception, and it is a harder one: a ListView with no size
+        /// virtualises no rows, so the row's controls have not been created and there is nothing for
+        /// UQuery to find at any price. Reading or writing a key row therefore needs the Keys tab to be
+        /// the front tab first, not merely present. That is what left
+        /// EditingAKeyAfterSamplingReachesTheSampledGradient Inconclusive rather than failing: its
+        /// Assume on a null field read as a missing control rather than as a hidden one.
+        /// </para>
+        /// </remarks>
         private void SelectTab(int index)
         {
             TabView tabs = null;
