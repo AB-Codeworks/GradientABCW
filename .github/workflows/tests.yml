@@ -1,7 +1,11 @@
 # Runs the package's EditMode and PlayMode suites on every push and pull request.
 #
-# Unity in CI needs an activated licence, which cannot be committed. Add these repository secrets
-# before enabling the workflow (Settings -> Secrets and variables -> Actions):
+# Unity in CI needs an activated licence, which cannot be committed. Until these repository secrets
+# exist the test job skips rather than fails, so an unconfigured repo shows a grey skip on main and
+# not a red X, and a pull request from a fork - which GitHub deliberately withholds secrets from,
+# however the repo is configured - does the same instead of failing on someone else's contribution.
+#
+# Add them under Settings -> Secrets and variables -> Actions:
 #
 #   UNITY_LICENSE   contents of the .ulf file from a Personal licence activation
 #   UNITY_EMAIL     the Unity account address
@@ -26,8 +30,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A job-level `if` cannot read the secrets context - GitHub allows only github, needs, vars and
+  # inputs there - so the presence of the licence has to be turned into an output by a step, which
+  # can read it. This is the whole reason for a second job.
+  activation:
+    name: licence configured?
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.probe.outputs.available }}
+    steps:
+      - id: probe
+        run: |
+          echo "available=${{ secrets.UNITY_LICENSE != '' }}" >> "$GITHUB_OUTPUT"
+          if [ "${{ secrets.UNITY_LICENSE != '' }}" != "true" ]; then
+            echo "::notice::UNITY_LICENSE is not set, so the test jobs are skipped. See the comment at the top of this workflow."
+          fi
+
   test:
     name: ${{ matrix.testMode }}
+    needs: activation
+    if: needs.activation.outputs.available == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
