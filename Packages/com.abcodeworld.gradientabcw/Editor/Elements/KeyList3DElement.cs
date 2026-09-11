@@ -58,6 +58,7 @@ namespace ABCodeworld.Gradients.Editor
         // Held rather than converted from a method group each time the mark moves, which a click into a
         // row does.
         private readonly Action<VisualElement> markRow;
+        private readonly KeyListHeader header;
 
         private GradientABCW3D gradient;
         private int selectedIndex = -1;
@@ -70,6 +71,10 @@ namespace ABCodeworld.Gradients.Editor
             this.isAlpha = isAlpha;
             markRow = MarkRow;
             AddToClassList("abcw-key-list");
+            AddToClassList("abcw-list-card");
+
+            header = new KeyListHeader(isAlpha, isAlpha ? "Alpha keys" : "Colour keys");
+            Add(header);
 
             listView = new ListView
             {
@@ -129,6 +134,9 @@ namespace ABCodeworld.Gradients.Editor
                 return;
 
             int count = isAlpha ? gradient.AlphaKeys.Length : gradient.ColorKeys.Length;
+            header.SetCount(count, GradientABCW3D.MaxKeys);
+            if (!isAlpha)
+                header.SetPipColor(gradient.ColorKeys.Length > 0 ? gradient.ColorKeys[0].color : Color.white);
 
             if (indices.Count != count)
             {

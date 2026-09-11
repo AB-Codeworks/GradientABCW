@@ -18,11 +18,11 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         [SetUp]
         public void SetUpBar()
         {
-            panelSize = new Vector2(600, 140);
+            panelSize = new Vector2(600, 130);
             gradient = TestGradients.Rainbow7();
             bar = new GradientBarElement();
             bar.style.width = 600;
-            bar.style.height = 140;
+            bar.style.height = 121;
             rootVisualElement.Add(bar);
             bar.Gradient = gradient;
             simulate.FrameUpdate();

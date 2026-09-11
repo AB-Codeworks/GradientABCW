@@ -1,0 +1,24 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- One skeleton for both pickers. The two windows differ only in what they put in railHost and
+       viewportHost: the flat one a pair of drag sources and a gradient bar, the 3D one a mode
+       selector and a cube. Everything below that is the same tool. -->
+  <ui:VisualElement name="root" class="abcw-picker-root">
+    <ui:VisualElement name="shellRow" class="abcw-shell-row">
+
+      <ui:VisualElement name="railHost" class="abcw-card abcw-rail" />
+
+      <ui:VisualElement name="mainColumn" class="abcw-main">
+        <ui:VisualElement name="viewportHost" class="abcw-viewport" />
+        <ui:VisualElement name="hintsHost" class="abcw-hints" />
+        <ui:VisualElement name="tabHost" class="abcw-tabhost" />
+
+        <ui:VisualElement name="okRow" class="abcw-ok-row">
+          <ui:VisualElement class="abcw-flex-spacer" />
+          <ui:Button name="okBtn" text="OK" class="abcw-btn abcw-btn--accent" />
+          <ui:Button name="cancelBtn" text="Cancel" class="abcw-btn" />
+        </ui:VisualElement>
+      </ui:VisualElement>
+
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

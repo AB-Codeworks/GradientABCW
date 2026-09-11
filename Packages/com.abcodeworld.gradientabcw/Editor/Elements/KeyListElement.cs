@@ -28,6 +28,7 @@ namespace ABCodeworld.Gradients.Editor
         private readonly bool isAlpha;
         private readonly ListView listView;
         private readonly List<int> indices = new();
+        private readonly KeyListHeader header;
         private GradientABCW gradient;
 
         public event Action<int, bool> KeySelected;
@@ -37,6 +38,10 @@ namespace ABCodeworld.Gradients.Editor
         {
             this.isAlpha = isAlpha;
             AddToClassList("abcw-key-list");
+            AddToClassList("abcw-list-card");
+
+            header = new KeyListHeader(isAlpha, isAlpha ? "Alpha keys" : "Colour keys");
+            Add(header);
 
             listView = new ListView
             {
@@ -73,6 +78,9 @@ namespace ABCodeworld.Gradients.Editor
                 return;
 
             int count = isAlpha ? gradient.AlphaKeys.Length : gradient.ColorKeys.Length;
+            header.SetCount(count, GradientABCW.MaxKeys);
+            if (!isAlpha)
+                header.SetPipColor(gradient.ColorKeys.Length > 0 ? gradient.ColorKeys[0].color : UnityEngine.Color.white);
 
             if (indices.Count != count)
             {

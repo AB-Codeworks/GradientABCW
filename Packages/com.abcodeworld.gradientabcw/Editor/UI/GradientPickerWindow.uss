@@ -1,12 +1,23 @@
+/* Window chrome and the colour tokens both pickers draw from. GradientTabs.uss builds the shell on
+   top of these, and GradientCube.uss the 3D viewport. */
+
+/* A colour tool should not out-saturate the thing being coloured, which the old lime-and-cyan
+   chrome plainly did: its buttons were louder than most gradients authored in front of them. Near
+   neutral charcoal with a faint cool bias, one accent, and semantic red kept separate from it.
+   The accent is the yellow already used for a selected key handle, so it is continuous with what
+   the package had rather than invented. */
 :root {
-    --bg: #0f1a2b;
-    --panel: #121f33;
-    --border: #1e3454;
-    --text: #d5e7ff;
-    --muted: #9bb3d6;
-    --accent: #a7ff1a;
-    --cyan: #2ee6ff;
-    --blue: #0f1a2b;
+    --bg: #16181c;
+    --panel: #1d2025;
+    --raise: #262a31;
+    --raise-hi: #2f343c;
+    --border: #333941;
+    --text: #e8eaee;
+    --muted: #9aa2af;
+    --dim: #6e7683;
+    --accent: #f0b429;
+    --accent-ink: #1b1405;
+    --danger: #e5534b;
 }
 
 .abcw-picker {
@@ -30,73 +41,37 @@
     border-color: var(--border);
     border-width: 1px;
     border-radius: 6px;
-    margin-top: 4px;
-    margin-bottom: 4px;
     padding: 6px 8px;
 }
 
-.abcw-library-host {
-    max-height: 220px;
-    flex-shrink: 0;
-}
-
-.abcw-editor-host {
-    flex-grow: 1;
-}
-
-.abcw-bar-row {
-    flex-direction: row;
-}
-
-.abcw-palette {
-    width: 100px;
-    min-width: 100px;
-    max-width: 100px;
-    border-width: 1px;
-    border-color: var(--border);
-    border-radius: 6px;
-    padding: 4px;
-    margin-right: 6px;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.abcw-bar-host {
-    flex-grow: 1;
-}
-
-.abcw-lists-row {
-    flex-direction: row;
-    flex-grow: 1;
-    margin-top: 6px;
-}
-
-.abcw-list-col {
-    flex-basis: 33%;
-    flex-grow: 1;
-    margin-right: 6px;
-}
-
 .abcw-btn {
-    color: var(--blue);
-    background-color: var(--cyan);
+    color: var(--text);
+    background-color: var(--raise);
+    border-color: var(--border);
+    border-width: 1px;
+    border-radius: 3px;
 }
 
 .abcw-btn:hover {
-    background-color: #4cf0ff;
+    background-color: var(--raise-hi);
 }
 
 .abcw-btn--accent {
+    color: var(--accent-ink);
     background-color: var(--accent);
+    border-color: var(--accent);
+    -unity-font-style: bold;
 }
 
 .abcw-btn--accent:hover {
-    background-color: #c8ff66;
+    background-color: #ffc53d;
+    border-color: #ffc53d;
 }
 
 .abcw-ok-row {
     flex-direction: row;
-    margin-top: 2px;
+    flex-shrink: 0;
+    margin-top: 6px;
 }
 
 .abcw-flex-spacer {
@@ -104,8 +79,8 @@
 }
 
 .abcw-library__tile {
-    flex-basis: 23.5%;
-    min-width: 160px;
+    flex-basis: 31%;
+    min-width: 150px;
     max-width: 320px;
     margin-right: 6px;
     margin-bottom: 6px;
@@ -116,9 +91,9 @@
     border-radius: 4px;
 }
 
-/* Lime scrollbars, matching the picker's accent colour, USS only. */
+/* Scrollbars in the accent, USS only. */
 .abcw-picker .unity-scroller {
-    background-color: #274061;
+    background-color: var(--raise);
 }
 
 .abcw-picker .unity-scroller .unity-dragger,
@@ -128,5 +103,5 @@
 
 .abcw-picker .unity-slider__tracker,
 .abcw-picker .unity-base-slider__tracker {
-    background-color: #274061;
+    background-color: var(--raise);
 }

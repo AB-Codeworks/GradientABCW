@@ -35,7 +35,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
 
             bar = new GradientBarElement();
             bar.style.width = 600;
-            bar.style.height = 140;
+            bar.style.height = 121;
             root.Add(bar);
             bar.Gradient = gradient;
 

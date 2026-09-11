@@ -14,13 +14,20 @@ namespace ABCodeworld.Gradients.Editor
     internal readonly struct BarGeometry
     {
         /// <summary>Height of the key lane above and below the gradient strip.</summary>
-        public const float LaneHeight = 24f;
+        public const float LaneHeight = 22f;
 
         /// <summary>Horizontal inset, leaving room for a handle centred on time 0 or 1.</summary>
         public const float PadX = 12f;
 
         public const float HandleWidth = 15f;
         public const float HandleHeight = 18f;
+
+        /// <summary>
+        /// Gap between a lane's edge and the handle inside it. Named because it is the constraint on
+        /// <see cref="LaneHeight"/>: a lane must be at least <c>HandleInset + HandleHeight</c> tall, or
+        /// handles paint outside the bar, which has no <c>overflow: hidden</c> to clip them.
+        /// </summary>
+        public const float HandleInset = 3f;
 
         /// <summary>How far past a lane a key must be dragged before it counts as removed.</summary>
         public const float RemoveThreshold = 5f;
@@ -49,7 +56,7 @@ namespace ABCodeworld.Gradients.Editor
         public Rect HandleRect(float time, bool isAlpha) =>
             new Rect(
                 strip.x + time * strip.width - HandleWidth / 2f,
-                isAlpha ? 3f : contentHeight - LaneHeight + 3f,
+                isAlpha ? HandleInset : contentHeight - LaneHeight + HandleInset,
                 HandleWidth,
                 HandleHeight);
 

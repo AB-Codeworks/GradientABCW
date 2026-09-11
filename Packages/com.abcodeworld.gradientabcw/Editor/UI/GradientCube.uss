@@ -60,52 +60,30 @@
     border-width: 2px;
 }
 
-/* Same width and position as the 1D picker's palette column, holding buttons instead of drag sources. */
-.abcw-mode-column {
-    width: 100px;
-    min-width: 100px;
-    max-width: 100px;
-    border-width: 1px;
-    border-color: var(--border);
-    border-radius: 6px;
-    padding: 4px;
-    margin-right: 6px;
-    flex-direction: column;
-    justify-content: flex-start;
-}
-
-/* Takes whatever width the cube column gave up. The minimum is where the Falloff row still has a
-   usable slider track after its 90px label, 60px field and 18px reset button. */
-.abcw-actions-column {
-    flex-grow: 1;
-    min-width: 300px;
-    margin-left: 6px;
-}
-
 .abcw-mode-selector {
     flex-direction: column;
 }
 
 .abcw-mode-btn {
-    height: 34px;
+    height: 26px;
     margin: 2px 0;
     color: var(--text);
-    background-color: #1b2c47;
+    background-color: var(--raise);
     border-width: 1px;
     border-color: var(--border);
     border-radius: 4px;
 }
 
 .abcw-mode-btn:hover {
-    background-color: #24395b;
+    background-color: var(--raise-hi);
 }
 
 .abcw-mode-btn--active {
-    color: var(--blue);
+    color: var(--accent-ink);
     background-color: var(--accent);
     border-color: var(--accent);
 }
 
 .abcw-mode-btn--active:hover {
-    background-color: #c8ff66;
+    background-color: #ffc53d;
 }

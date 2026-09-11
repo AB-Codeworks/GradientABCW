@@ -1,0 +1,255 @@
+/* The compact shell both pickers share: a rail that says what it is for, a viewport row, the
+   gesture hints, and everything else behind a TabView. Pairs with GradientPickerWindow.uss, which
+   supplies the colour tokens and the window chrome. Loaded after it and before GradientCube.uss. */
+
+.abcw-shell-row {
+    flex-direction: row;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.abcw-main {
+    flex-grow: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    margin-left: 6px;
+}
+
+/* ---------- the rail ----------------------------------------------------- */
+
+/* Narrower than the 100px column it replaces, which is what let the bar shed width. The labels
+   inside it are shortened to match — "Alpha Keys" does not fit 76px. */
+.abcw-rail {
+    width: 76px;
+    min-width: 76px;
+    max-width: 76px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding: 6px;
+}
+
+.abcw-rail__cap {
+    -unity-text-align: middle-center;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.abcw-rail__count {
+    -unity-text-align: middle-center;
+    font-size: 9px;
+    color: var(--dim);
+    margin-top: 4px;
+}
+
+/* ---------- the viewport row --------------------------------------------- */
+
+.abcw-viewport {
+    flex-direction: row;
+    flex-shrink: 0;
+}
+
+/* ---------- the gesture hints -------------------------------------------- */
+
+/* Every one of these was previously undiscoverable: nothing in the window said that Shift-click
+   adds a colour key, or that dragging a handle off its lane deletes it. */
+.abcw-hints {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    padding: 5px 2px 0 2px;
+}
+
+.abcw-hint {
+    font-size: 10px;
+    color: var(--dim);
+    margin-right: 14px;
+}
+
+/* ---------- the tab shell ------------------------------------------------ */
+
+.abcw-tabhost {
+    flex-grow: 1;
+    min-height: 0;
+    margin-top: 6px;
+}
+
+.abcw-tabs {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.abcw-tabs .unity-tab__header {
+    height: 24px;
+    padding-left: 11px;
+    padding-right: 11px;
+}
+
+.abcw-tabs .unity-tab__header-underline {
+    background-color: var(--accent);
+}
+
+.abcw-tabs .unity-tab-view__content-viewport {
+    background-color: var(--panel);
+    border-color: var(--border);
+    border-width: 1px;
+    border-top-width: 0;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* One pane's worth of padding, applied once rather than per tab. */
+.abcw-tab-pane {
+    flex-grow: 1;
+    min-height: 0;
+    padding: 7px;
+}
+
+.abcw-tab-pane--row {
+    flex-direction: row;
+}
+
+.abcw-tab-pane__section {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: var(--muted);
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.abcw-tab-pane__note {
+    font-size: 10px;
+    color: var(--dim);
+    white-space: normal;
+}
+
+/* Sampling discards every key in the gradient, which it has never said anywhere. */
+.abcw-warn {
+    font-size: 10px;
+    color: #d8a23a;
+    background-color: rgba(240, 180, 41, 0.09);
+    border-color: rgba(240, 180, 41, 0.28);
+    border-width: 1px;
+    border-radius: 3px;
+    padding: 4px 6px;
+    margin-bottom: 4px;
+    white-space: normal;
+}
+
+/* ---------- labelled key sources ----------------------------------------- */
+
+/* The 1D picker's two drag swatches used to be bare coloured rectangles with no label, no tooltip
+   and no text anywhere in the window. The swatch is now one child of a titled tile. */
+.abcw-keysource {
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 4px;
+    margin-bottom: 5px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 4px;
+    background-color: var(--raise);
+    cursor: pan;
+}
+
+.abcw-keysource:hover {
+    border-color: var(--accent);
+}
+
+.abcw-keysource__swatch {
+    width: 100%;
+    height: 20px;
+    border-width: 1px;
+    border-color: rgb(12, 16, 24);
+    border-radius: 3px;
+}
+
+.abcw-keysource__title {
+    font-size: 10px;
+    color: var(--text);
+    margin-top: 4px;
+}
+
+.abcw-keysource__hint {
+    font-size: 9px;
+    color: var(--dim);
+}
+
+.abcw-keysource:hover .abcw-keysource__hint {
+    color: var(--muted);
+}
+
+/* ---------- key list headers --------------------------------------------- */
+
+/* The two lists were previously indistinguishable: no title, no header, no count, and the only
+   difference was what sat inside the rows. The count doubles as the key-cap readout. */
+.abcw-key-list__header {
+    flex-direction: row;
+    align-items: center;
+    height: 22px;
+    flex-shrink: 0;
+    padding-left: 6px;
+    padding-right: 6px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border);
+}
+
+.abcw-key-list__title {
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-left: 5px;
+}
+
+.abcw-key-list__count {
+    font-size: 10px;
+    color: var(--dim);
+}
+
+.abcw-key-list__pip {
+    width: 11px;
+    height: 11px;
+    border-width: 1px;
+    border-color: rgb(12, 16, 24);
+    border-radius: 50%;
+}
+
+/* Alpha keys are diamonds everywhere else in the package; match that here. */
+.abcw-key-list__pip--alpha {
+    border-radius: 1px;
+    rotate: 45deg;
+    background-color: rgb(217, 221, 228);
+}
+
+.abcw-list-card {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    flex-direction: column;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 3px;
+    background-color: var(--bg);
+}
+
+/* USS has no adjacent-sibling combinator, so the gap is an explicit modifier the window applies. */
+.abcw-list-card--spaced {
+    margin-left: 6px;
+}
+
+/* ---------- the 3D viewport's side panel --------------------------------- */
+
+/* A cube is square, so a wide viewport is mostly gutter. The four fixed-angle renders that already
+   serve the inspector field fill it instead. */
+.abcw-cube-side {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    margin-left: 6px;
+    padding: 6px;
+}
+
+.abcw-cube-side .abcw-cube-strip {
+    flex-wrap: wrap;
+}

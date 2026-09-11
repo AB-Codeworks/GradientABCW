@@ -50,7 +50,7 @@ namespace ABCodeworld.Gradients.Editor
             alphaButton = new Button(() => IsAlpha = true)
             {
                 name = "alphaMode",
-                text = "Alpha Keys",
+                text = "Alpha",
                 tooltip = "Edit alpha keys. Add Key and the cube's highlighted dots follow this choice.",
             };
             alphaButton.AddToClassList("abcw-mode-btn");
@@ -59,7 +59,7 @@ namespace ABCodeworld.Gradients.Editor
             colorButton = new Button(() => IsAlpha = false)
             {
                 name = "colorMode",
-                text = "Color Keys",
+                text = "Colour",
                 tooltip = "Edit colour keys. Add Key and the cube's highlighted dots follow this choice.",
             };
             colorButton.AddToClassList("abcw-mode-btn");
@@ -68,7 +68,7 @@ namespace ABCodeworld.Gradients.Editor
             addButton = new Button(() => AddKeyRequested?.Invoke())
             {
                 name = "addKey",
-                text = "Add Key",
+                text = "Add",
                 tooltip = "Add a key of the selected kind at the centre of the cube.",
             };
             addButton.AddToClassList("abcw-btn");

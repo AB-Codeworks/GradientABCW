@@ -5,10 +5,17 @@ using UnityEngine.UIElements;
 namespace ABCodeworld.Gradients.Editor
 {
     /// <summary>
-    /// A pure UI Toolkit gradient editor window: bar, palette, key lists, an asset library, and
-    /// mesh/texture sampling. Edits a working clone of the gradient it was opened with and reports
-    /// back through the <see cref="GradientPickerSession"/> supplied to <see cref="Open"/>.
+    /// A pure UI Toolkit gradient editor window: a rail of key sources, the gradient bar, and
+    /// everything else behind tabs. Edits a working clone of the gradient it was opened with and
+    /// reports back through the <see cref="GradientPickerSession"/> supplied to <see cref="Open"/>.
     /// </summary>
+    /// <remarks>
+    /// Shares its skeleton with the 3D picker through <c>GradientPickerShell.uxml</c>; the two differ
+    /// only in what fills the rail and the viewport. Everything that is not the gradient — the
+    /// library, the utilities, modulation, rebuilding — sits in a <see cref="TabView"/> so it costs
+    /// no space until it is asked for. The library used to hold 220px at the top of the window for
+    /// something used once a session.
+    /// </remarks>
     public sealed class GradientPickerWindow : EditorWindow
     {
         public static GradientPickerWindow Current { get; private set; }
@@ -24,7 +31,10 @@ namespace ABCodeworld.Gradients.Editor
         private KeyListElement colorList;
         private KeyListElement alphaList;
         private GradientLibraryPanel libraryPanel;
-        private GradientActionsPanel actionsPanel;
+        private GradientAdjustPanel adjustPanel;
+        private GradientRebuildPanel rebuildPanel;
+        private ModulationPanel modulationPanel;
+        private Label keyCount;
         private IVisualElementScheduledItem pendingLivePreview;
 
         /// <summary>The gradient being edited (a clone of what the window was opened with).</summary>
@@ -34,8 +44,8 @@ namespace ABCodeworld.Gradients.Editor
         {
             var window = CreateInstance<GradientPickerWindow>();
             window.titleContent = new GUIContent(title);
-            window.minSize = new Vector2(780, 540);
-            EditorWindowPlacement.CenterOnMainWindow(window, 820, 640);
+            window.minSize = new Vector2(700, 430);
+            EditorWindowPlacement.CenterOnMainWindow(window, 714, 470);
             window.BeginSession(initial, session);
             window.ShowUtility();
             window.Focus();
@@ -65,15 +75,20 @@ namespace ABCodeworld.Gradients.Editor
 
         private void CreateGUI()
         {
-            var uxml = PackagePaths.Load<VisualTreeAsset>("Editor/UI/GradientPickerWindow.uxml");
+            var uxml = PackagePaths.Load<VisualTreeAsset>("Editor/UI/GradientPickerShell.uxml");
             var pickerUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientPickerWindow.uss");
             var barUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientBar.uss");
             var fieldUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientABCWField.uss");
+            var tabsUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientTabs.uss");
 
             rootVisualElement.Clear();
+
+            // Order is precedence: the shell sheet is added last so its rules win ties against the
+            // chrome sheet, the same discipline GradientCube.uss documents.
             if (pickerUss != null) rootVisualElement.styleSheets.Add(pickerUss);
             if (barUss != null) rootVisualElement.styleSheets.Add(barUss);
             if (fieldUss != null) rootVisualElement.styleSheets.Add(fieldUss);
+            if (tabsUss != null) rootVisualElement.styleSheets.Add(tabsUss);
 
             if (uxml != null)
                 uxml.CloneTree(rootVisualElement);
@@ -82,49 +97,203 @@ namespace ABCodeworld.Gradients.Editor
 
             rootVisualElement.AddToClassList("abcw-picker");
             rootVisualElement.style.flexGrow = 1;
+            rootVisualElement.RegisterCallback<KeyDownEvent>(OnWindowKeyDown);
 
-            var barHost = rootVisualElement.Q<VisualElement>("barHost");
-            var paletteHost = rootVisualElement.Q<VisualElement>("palette");
-            var colorListHost = rootVisualElement.Q<VisualElement>("colorListHost");
-            var alphaListHost = rootVisualElement.Q<VisualElement>("alphaListHost");
-            var libraryHost = rootVisualElement.Q<VisualElement>("libraryHost");
-            var actionsHost = rootVisualElement.Q<VisualElement>("actionsHost");
+            var railHost = rootVisualElement.Q<VisualElement>("railHost");
+            var viewportHost = rootVisualElement.Q<VisualElement>("viewportHost");
+            var hintsHost = rootVisualElement.Q<VisualElement>("hintsHost");
+            var tabHost = rootVisualElement.Q<VisualElement>("tabHost");
             var okButton = rootVisualElement.Q<Button>("okBtn");
             var cancelButton = rootVisualElement.Q<Button>("cancelBtn");
 
-            bar = new GradientBarElement();
-            barHost?.Add(bar);
+            bar = new GradientBarElement { name = "bar" };
+            bar.style.flexGrow = 1;
+            viewportHost?.Add(bar);
             bar.RegisterCallback<GradientChangedEvent>(_ => OnWorkingChanged());
 
-            alphaPalette = new KeyPaletteDraggable(true);
-            colorPalette = new KeyPaletteDraggable(false);
-            paletteHost?.Add(alphaPalette);
-            paletteHost?.Add(colorPalette);
-            alphaPalette.Dragging += OnPaletteDragging;
-            colorPalette.Dragging += OnPaletteDragging;
-            alphaPalette.Dropped += OnPaletteDropped;
-            colorPalette.Dropped += OnPaletteDropped;
-
-            colorList = new KeyListElement(isAlpha: false);
-            alphaList = new KeyListElement(isAlpha: true);
-            colorListHost?.Add(colorList);
-            alphaListHost?.Add(alphaList);
-            colorList.Changed += OnWorkingChanged;
-            alphaList.Changed += OnWorkingChanged;
-
-            libraryPanel = new GradientLibraryPanel { GetCurrentGradient = () => working };
-            libraryHost?.Add(libraryPanel);
-            libraryPanel.Loaded += AdoptWorking;
-
-            actionsPanel = new GradientActionsPanel();
-            actionsHost?.Add(actionsPanel);
-            actionsPanel.Changed += OnWorkingChanged;
-            actionsPanel.Sampled += AdoptWorking;
+            BuildRail(railHost);
+            PickerShell.Hints(hintsHost,
+                "\u21e7 click adds a colour key",
+                "\u2325 click adds an alpha key",
+                "drag a key off its lane to remove",
+                "Del removes the selection");
+            BuildTabs(tabHost);
 
             okButton?.RegisterCallback<ClickEvent>(_ => Accept());
             cancelButton?.RegisterCallback<ClickEvent>(_ => Cancel());
 
             RefreshAllViews();
+        }
+
+        /// <summary>
+        /// The rail: where keys come from, said out loud. The two swatches used to sit unlabelled in a
+        /// 100px column with no text anywhere in the window explaining what they were for.
+        /// </summary>
+        private void BuildRail(VisualElement railHost)
+        {
+            if (railHost == null)
+                return;
+
+            var caption = new Label("ADD A KEY");
+            caption.AddToClassList("abcw-rail__cap");
+            railHost.Add(caption);
+
+            colorPalette = new KeyPaletteDraggable(false) { name = "colorSource" };
+            alphaPalette = new KeyPaletteDraggable(true) { name = "alphaSource" };
+            railHost.Add(colorPalette);
+            railHost.Add(alphaPalette);
+
+            foreach (var palette in new[] { colorPalette, alphaPalette })
+            {
+                palette.Dragging += OnPaletteDragging;
+                palette.Dropped += OnPaletteDropped;
+                palette.ClickAdd += OnPaletteClicked;
+            }
+
+            railHost.Add(new VisualElement { style = { flexGrow = 1 } });
+
+            keyCount = new Label();
+            keyCount.AddToClassList("abcw-rail__count");
+            railHost.Add(keyCount);
+        }
+
+        private void BuildTabs(VisualElement tabHost)
+        {
+            if (tabHost == null)
+                return;
+
+            colorList = new KeyListElement(isAlpha: false);
+            alphaList = new KeyListElement(isAlpha: true);
+            alphaList.AddToClassList("abcw-list-card--spaced");
+            colorList.Changed += OnWorkingChanged;
+            alphaList.Changed += OnWorkingChanged;
+
+            var keysPane = new VisualElement { name = "keysPane" };
+            keysPane.AddToClassList("abcw-tab-pane");
+            keysPane.AddToClassList("abcw-tab-pane--row");
+            keysPane.Add(colorList);
+            keysPane.Add(alphaList);
+
+            adjustPanel = new GradientAdjustPanel { name = "adjustPane" };
+            adjustPanel.Changed += OnWorkingChanged;
+
+            modulationPanel = new ModulationPanel { name = "modulatePane" };
+            modulationPanel.AddToClassList("abcw-tab-pane");
+            modulationPanel.RegisterValueChangedCallback(evt =>
+            {
+                if (working == null) return;
+                working.Modulation = evt.newValue;
+                OnWorkingChanged();
+            });
+
+            rebuildPanel = new GradientRebuildPanel { name = "rebuildPane" };
+            rebuildPanel.AddTextureAction("textureStrict", "Strict LUT",
+                "Build keys from a 1xN vertical LUT (first column), up to 16 entries.", SampleTextureStrict);
+            rebuildPanel.AddTextureAction("textureRandom", "Scatter",
+                "Build a 16-key gradient by sampling and organizing colors from the entire texture.", SampleTextureRandom);
+            rebuildPanel.AddMeshAction("sampleMesh", "Sample vertex colours",
+                "Rebuild the gradient from the mesh's coloured vertices.", SampleMesh);
+
+            libraryPanel = new GradientLibraryPanel { GetCurrentGradient = () => working };
+            libraryPanel.AddToClassList("abcw-tab-pane");
+            libraryPanel.Loaded += AdoptWorking;
+
+            // Deliberately no viewDataKey: a remembered tab would make a freshly opened picker land
+            // wherever the last one was left, which is neither predictable nor what a session editing a
+            // different gradient wants.
+            var tabs = new TabView { name = "pickerTabs" };
+            tabs.AddToClassList("abcw-tabs");
+            PickerShell.AddTab(tabs, "Keys", "keysTab", keysPane);
+            PickerShell.AddTab(tabs, "Adjust", "adjustTab", adjustPanel);
+            PickerShell.AddTab(tabs, "Modulate", "modulateTab", modulationPanel);
+            PickerShell.AddTab(tabs, "Rebuild", "rebuildTab", rebuildPanel);
+            PickerShell.AddTab(tabs, "Library", "libraryTab", libraryPanel);
+            tabHost.Add(tabs);
+            tabs.selectedTabIndex = 0;
+
+            // A key list rebuilt while its tab was hidden has no rows at all: a ListView with no size
+            // virtualises nothing. Sampling on the Rebuild tab and switching back to Keys is exactly
+            // that sequence, so the newly shown tab re-reads the gradient.
+            tabs.activeTabChanged += (_, _) => RefreshAllViews();
+        }
+
+        /// <summary>Escape cancels and Enter accepts, which the window has never answered to.</summary>
+        private void OnWindowKeyDown(KeyDownEvent evt)
+        {
+            if (evt.keyCode == KeyCode.Escape)
+            {
+                Cancel();
+                evt.StopPropagation();
+                return;
+            }
+
+            // Not while a text field has focus: Enter there means "commit this number".
+            if ((evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+                && rootVisualElement.panel?.focusController?.focusedElement is not ITextEdition)
+            {
+                Accept();
+                evt.StopPropagation();
+            }
+        }
+
+        private void SampleTextureStrict()
+        {
+            if (!ColorSampler.TrySampleStrict(rebuildPanel.Texture, out var result, out string error))
+            {
+                EditorUtility.DisplayDialog("Strict LUT", error, "OK");
+                return;
+            }
+            AdoptWorking(result);
+        }
+
+        private void SampleTextureRandom()
+        {
+            var source = new TextureColorSource(rebuildPanel.Texture);
+            if (source.Error != null)
+            {
+                EditorUtility.DisplayDialog("Scatter", source.Error, "OK");
+                return;
+            }
+            if (!ColorSampler.TrySampleRandom(source, 16, rebuildPanel.Seed, out var result, out string error))
+            {
+                EditorUtility.DisplayDialog("Scatter", error, "OK");
+                return;
+            }
+            AdoptWorking(result);
+        }
+
+        private void SampleMesh()
+        {
+            var source = new MeshColorSource(rebuildPanel.Mesh);
+            if (!ColorSampler.TrySampleRandom(source, 16, rebuildPanel.Seed, out var result, out string error))
+            {
+                EditorUtility.DisplayDialog("Sample Mesh", error, "OK");
+                return;
+            }
+            AdoptWorking(result);
+        }
+
+        /// <summary>
+        /// Clicking a key source adds its kind at the centre of the bar. The swatches were drag-only,
+        /// and nothing said they were draggable, so a click did nothing a user could understand.
+        /// </summary>
+        private void OnPaletteClicked(bool isAlpha)
+        {
+            if (working == null)
+                return;
+
+            const float centre = 0.5f;
+            if (isAlpha)
+            {
+                if (working.CanAddAlphaKey)
+                    working.AddAlphaKey(working.EvaluateBase(centre).a, centre);
+            }
+            else if (working.CanAddColorKey)
+            {
+                working.AddColorKey(working.EvaluateBase(centre), centre);
+            }
+
+            OnWorkingChanged();
         }
 
         private void RefreshAllViews()
@@ -135,8 +304,10 @@ namespace ABCodeworld.Gradients.Editor
             bar.Gradient = working;
             colorList.SetGradient(working);
             alphaList.SetGradient(working);
-            actionsPanel.SetGradient(working);
+            adjustPanel.SetGradient(working);
+            modulationPanel.SetValueWithoutNotify(working.Modulation);
             colorPalette.SetColor(working.ColorKeys.Length > 0 ? working.ColorKeys[0].color : Color.white);
+            SyncKeyCount();
         }
 
         private void OnPaletteDragging(Vector2 panelPosition, bool isAlpha) =>
@@ -189,7 +360,22 @@ namespace ABCodeworld.Gradients.Editor
             bar.Gradient = working;
             colorList.Refresh();
             alphaList.Refresh();
+            adjustPanel.Refresh();
+            SyncKeyCount();
             RequestLivePreview();
+        }
+
+        /// <summary>
+        /// The rail's running total. The 32-key cap used to fail in silence: adding past it simply
+        /// did nothing, with no count, no disabled control and no message.
+        /// </summary>
+        private void SyncKeyCount()
+        {
+            if (keyCount == null || working == null)
+                return;
+
+            int used = working.ColorKeys.Length + working.AlphaKeys.Length;
+            keyCount.text = $"{used} / {GradientABCW.MaxKeys * 2}";
         }
 
         /// <summary>

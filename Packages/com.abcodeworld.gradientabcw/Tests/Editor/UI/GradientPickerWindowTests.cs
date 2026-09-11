@@ -16,7 +16,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         [SetUp]
         public void SetUpWindow()
         {
-            panelSize = new Vector2(820, 640);
+            panelSize = new Vector2(714, 470);
         }
 
         [Test]
@@ -36,6 +36,10 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             var session = new GradientPickerSession { LivePreview = true, Changed = g => changed = g };
             window.BeginSession(TestGradients.Rainbow7(), session);
             simulate.FrameUpdate();
+
+            // Back to Keys before reading a row. A ListView inside a hidden tab has zero size, so it
+            // virtualises no rows at all — UQuery finds hidden elements, but only ones that exist.
+            SelectTab(KeysTab);
 
             var timeField = window.rootVisualElement.Q<FloatField>("time");
             Assume.That(timeField, Is.Not.Null);
@@ -85,6 +89,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             using var tempFolder = new TempAssetFolder("PickerLibrary");
             window.BeginSession(TestGradients.Rainbow7(), new GradientPickerSession());
             simulate.FrameUpdate();
+            SelectTab(LibraryTab);
 
             var folderField = window.rootVisualElement.Q<TextField>("folder");
             var applyButton = window.rootVisualElement.Q<Button>("apply");
@@ -92,14 +97,12 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             Assume.That(applyButton, Is.Not.Null);
 
             folderField.value = tempFolder.Path;
-            simulate.Click(applyButton);
-            simulate.FrameUpdate();
+            Press("apply");
 
             var saveNameField = window.rootVisualElement.Q<TextField>("saveName");
             var saveButton = window.rootVisualElement.Q<Button>("save");
             saveNameField.value = "MyTestGradient";
-            simulate.Click(saveButton);
-            simulate.FrameUpdate();
+            Press("save");
 
             var tile = window.rootVisualElement.Q(className: "abcw-library__tile");
             Assert.That(tile, Is.Not.Null);
@@ -115,6 +118,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         {
             window.BeginSession(TestGradients.Default(), new GradientPickerSession());
             simulate.FrameUpdate();
+            SelectTab(RebuildTab);
 
             var tex = new Texture2D(1, 4, TextureFormat.RGBA32, false);
             for (int y = 0; y < 4; y++)
@@ -187,6 +191,7 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
         {
             window.BeginSession(TestGradients.Rainbow7(), new GradientPickerSession());
             simulate.FrameUpdate();
+            SelectTab(RebuildTab);
 
             var tex = new Texture2D(1, 4, TextureFormat.RGBA32, false);
             for (int y = 0; y < 4; y++)
@@ -221,14 +226,13 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
             using var tempFolder = new TempAssetFolder("PickerLibraryAdopt");
             window.BeginSession(TestGradients.Rainbow7(), new GradientPickerSession());
             simulate.FrameUpdate();
+            SelectTab(LibraryTab);
 
             window.rootVisualElement.Q<TextField>("folder").value = tempFolder.Path;
-            simulate.Click(window.rootVisualElement.Q<Button>("apply"));
-            simulate.FrameUpdate();
+            Press("apply");
 
             window.rootVisualElement.Q<TextField>("saveName").value = "AdoptTest";
-            simulate.Click(window.rootVisualElement.Q<Button>("save"));
-            simulate.FrameUpdate();
+            Press("save");
 
             var tile = window.rootVisualElement.Q(className: "abcw-library__tile");
             Assume.That(tile, Is.Not.Null);
@@ -242,6 +246,78 @@ namespace ABCodeworld.Gradients.Tests.Editor.UI
 
             Assert.That(window.Working.BlendMode, Is.EqualTo(BlendMode.Stepped),
                 "the actions panel still held the gradient the load had replaced");
+        }
+
+
+        /// <summary>
+        /// Brings a tab to the front and lets layout settle.
+        /// </summary>
+        /// <remarks>
+        /// UQuery finds elements inside a hidden tab perfectly well, so reading a value or setting one
+        /// needs no help. Clicking does: <c>simulate.Click</c> is positional, and a hidden element's
+        /// worldBound is Rect.zero, so the click lands at panel (0,0) and hits whatever is there —
+        /// silently, without an exception. The same shape as expanding a Foldout before clicking into
+        /// it in GradientABCWPropertyDrawerTests.
+        /// </remarks>
+        private const int KeysTab = 0;
+        private const int AdjustTab = 1;
+        private const int ModulateTab = 2;
+        private const int RebuildTab = 3;
+        private const int LibraryTab = 4;
+
+        /// <summary>
+        /// Waits for CreateGUI, which runs on the window's first layout pass and may need more than one
+        /// frame, then brings a tab to the front and lets it lay out.
+        /// </summary>
+        /// <remarks>
+        /// UQuery finds elements inside a hidden tab perfectly well, so reading a value or setting one
+        /// needs no help at all. Clicking does: simulate.Click is positional, and a hidden element has a
+        /// zero worldBound, so the click lands at panel (0, 0) and hits whatever is there — silently,
+        /// with no exception. The same shape as expanding a Foldout before clicking into it in
+        /// GradientABCWPropertyDrawerTests.
+        /// </remarks>
+        /// <summary>
+        /// Clicks a named button, having first proved it is actually on screen.
+        /// </summary>
+        /// <remarks>
+        /// simulate.Click is positional: a control with a zero worldBound — which is what everything
+        /// inside a hidden tab has — sends the click to panel (0, 0), where it silently lands on
+        /// whatever is there. Without this check the symptom is a neighbouring control firing, which
+        /// reads as a bizarre bug rather than as a hidden tab.
+        /// </remarks>
+        private void Press(string buttonName)
+        {
+            // Flush first: a field value set immediately before this relayouts the row, and both the
+            // measurement below and the click itself would otherwise use the positions from before it.
+            simulate.FrameUpdate();
+
+            var button = window.rootVisualElement.Q<Button>(buttonName);
+            Assume.That(button, Is.Not.Null, buttonName);
+            Assume.That(button.worldBound.width, Is.GreaterThan(0f), buttonName + " is not on screen");
+            simulate.Click(button);
+            simulate.FrameUpdate();
+        }
+
+        private void SelectTab(int index)
+        {
+            TabView tabs = null;
+            for (int frame = 0; frame < 10 && tabs == null; frame++)
+            {
+                simulate.FrameUpdate();
+                tabs = window.rootVisualElement.Q<TabView>("pickerTabs");
+            }
+
+            Assume.That(tabs, Is.Not.Null, "pickerTabs");
+            tabs.selectedTabIndex = index;
+
+            // A tab shown for the first time lays its subtree out over several frames, and a ListView
+            // that was rebuilt while hidden only re-virtualises its rows once it has a size again.
+            for (int frame = 0; frame < 4; frame++)
+                simulate.FrameUpdate();
+
+            // A hidden tab's controls have a zero worldBound, and simulate.Click is positional, so a
+            // switch that silently did not take sends every later click to panel (0, 0).
+            Assume.That(tabs.selectedTabIndex, Is.EqualTo(index), "tab did not switch");
         }
 
         private static Button FindButtonByText(VisualElement root, string text)

@@ -42,7 +42,11 @@ namespace ABCodeworld.Gradients.Editor
         private KeyList3DElement colorList;
         private KeyList3DElement alphaList;
         private GradientLibrary3DPanel libraryPanel;
-        private GradientActions3DPanel actionsPanel;
+        private GradientAdjust3DPanel adjustPanel;
+        private GradientRebuildPanel rebuildPanel;
+        private ModulationPanel modulationPanel;
+        private CubePreviewStripElement resultStrip;
+        private Label keyCount;
         private IVisualElementScheduledItem pendingLivePreview;
 
         /// <summary>The gradient being edited (a clone of what the window was opened with).</summary>
@@ -53,10 +57,10 @@ namespace ABCodeworld.Gradients.Editor
             var window = CreateInstance<GradientPicker3DWindow>();
             window.titleContent = new GUIContent(title);
 
-            // Wider than the 1D picker: a key row carries three coordinate fields where that one carries a
-            // single time, and three of those rows sit side by side.
-            window.minSize = new Vector2(880, 600);
-            EditorWindowPlacement.CenterOnMainWindow(window, 960, 720);
+            // Taller than the flat picker, and for one reason: a cube is square, so its viewport
+            // cannot be flattened the way the gradient strip was.
+            window.minSize = new Vector2(700, 560);
+            EditorWindowPlacement.CenterOnMainWindow(window, 714, 620);
             window.BeginSession(initial, session);
             window.ShowUtility();
             window.Focus();
@@ -86,18 +90,22 @@ namespace ABCodeworld.Gradients.Editor
 
         private void CreateGUI()
         {
-            var uxml = PackagePaths.Load<VisualTreeAsset>("Editor/UI/GradientPicker3DWindow.uxml");
+            var uxml = PackagePaths.Load<VisualTreeAsset>("Editor/UI/GradientPickerShell.uxml");
             var pickerUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientPickerWindow.uss");
             var barUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientBar.uss");
-            var cubeUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientCube.uss");
             var fieldUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientABCWField.uss");
             var cubeFieldUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientABCW3DField.uss");
+            var tabsUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientTabs.uss");
+            var cubeUss = PackagePaths.Load<StyleSheet>("Editor/UI/GradientCube.uss");
 
             rootVisualElement.Clear();
+
+            // Order is precedence, and the cube sheet stays last so its rules win ties.
             if (pickerUss != null) rootVisualElement.styleSheets.Add(pickerUss);
             if (barUss != null) rootVisualElement.styleSheets.Add(barUss);
             if (fieldUss != null) rootVisualElement.styleSheets.Add(fieldUss);
             if (cubeFieldUss != null) rootVisualElement.styleSheets.Add(cubeFieldUss);
+            if (tabsUss != null) rootVisualElement.styleSheets.Add(tabsUss);
             if (cubeUss != null) rootVisualElement.styleSheets.Add(cubeUss);
 
             if (uxml != null)
@@ -107,48 +115,187 @@ namespace ABCodeworld.Gradients.Editor
 
             rootVisualElement.AddToClassList("abcw-picker");
             rootVisualElement.style.flexGrow = 1;
+            rootVisualElement.RegisterCallback<KeyDownEvent>(OnWindowKeyDown);
 
-            var cubeHost = rootVisualElement.Q<VisualElement>("cubeHost");
-            var modeHost = rootVisualElement.Q<VisualElement>("modeHost");
-            var colorListHost = rootVisualElement.Q<VisualElement>("colorListHost");
-            var alphaListHost = rootVisualElement.Q<VisualElement>("alphaListHost");
-            var libraryHost = rootVisualElement.Q<VisualElement>("libraryHost");
-            var actionsHost = rootVisualElement.Q<VisualElement>("actionsHost");
+            var railHost = rootVisualElement.Q<VisualElement>("railHost");
+            var viewportHost = rootVisualElement.Q<VisualElement>("viewportHost");
+            var hintsHost = rootVisualElement.Q<VisualElement>("hintsHost");
+            var tabHost = rootVisualElement.Q<VisualElement>("tabHost");
             var okButton = rootVisualElement.Q<Button>("okBtn");
             var cancelButton = rootVisualElement.Q<Button>("cancelBtn");
 
-            cube = new GradientCubeElement { name = "cube" };
-            cubeHost?.Add(cube);
-            cube.RegisterCallback<Gradient3DChangedEvent>(_ => OnWorkingChanged());
-            cube.KeySelected += OnCubeKeySelected;
-
-            modeSelector = new KeyModeSelector { name = "modeSelector" };
-            modeHost?.Add(modeSelector);
-            modeSelector.ModeChanged += OnModeChanged;
-            modeSelector.AddKeyRequested += AddKey;
-
-            colorList = new KeyList3DElement(isAlpha: false);
-            alphaList = new KeyList3DElement(isAlpha: true);
-            colorListHost?.Add(colorList);
-            alphaListHost?.Add(alphaList);
-            colorList.Changed += OnWorkingChanged;
-            alphaList.Changed += OnWorkingChanged;
-            colorList.KeySelected += OnListKeySelected;
-            alphaList.KeySelected += OnListKeySelected;
-
-            libraryPanel = new GradientLibrary3DPanel { GetCurrentGradient = () => working };
-            libraryHost?.Add(libraryPanel);
-            libraryPanel.Loaded += AdoptWorking;
-
-            actionsPanel = new GradientActions3DPanel();
-            actionsHost?.Add(actionsPanel);
-            actionsPanel.Changed += OnWorkingChanged;
-            actionsPanel.Sampled += AdoptWorking;
+            BuildViewport(viewportHost);
+            BuildRail(railHost);
+            PickerShell.Hints(hintsHost,
+                "right-drag turns the cube",
+                "drag a key across the floor of the cube",
+                "\u21e7 drag moves it up and down",
+                "only keys of the selected mode move");
+            BuildTabs(tabHost);
 
             okButton?.RegisterCallback<ClickEvent>(_ => Accept());
             cancelButton?.RegisterCallback<ClickEvent>(_ => Cancel());
 
             RefreshAllViews();
+        }
+
+        /// <summary>
+        /// The cube, and beside it the four fixed-angle renders that stand in for a swatch.
+        /// </summary>
+        /// <remarks>
+        /// The cube is drawn as a centred square sized by the shorter side of its host, so a viewport
+        /// as wide as the tab pane below would be mostly gutter — the waste this window already had
+        /// removed once. Keeping the host at its own width and filling the rest with
+        /// <see cref="CubePreviewStripElement"/> spends that space instead, and answers something the
+        /// 3D picker never could: what the gradient looks like from the sides you are not facing.
+        /// </remarks>
+        private void BuildViewport(VisualElement viewportHost)
+        {
+            if (viewportHost == null)
+                return;
+
+            var cubeHost = new VisualElement { name = "cubeHost" };
+            cubeHost.AddToClassList("abcw-cube-host");
+            cube = new GradientCubeElement { name = "cube" };
+            cubeHost.Add(cube);
+            viewportHost.Add(cubeHost);
+
+            cube.RegisterCallback<Gradient3DChangedEvent>(_ => OnWorkingChanged());
+            cube.KeySelected += OnCubeKeySelected;
+
+            var side = new VisualElement { name = "cubeSide" };
+            side.AddToClassList("abcw-card");
+            side.AddToClassList("abcw-cube-side");
+            side.Add(new Label("RESULT") { pickingMode = PickingMode.Ignore, name = "resultCap" });
+            side.Q<Label>("resultCap").AddToClassList("abcw-rail__cap");
+
+            resultStrip = new CubePreviewStripElement { name = "resultStrip", IncludeModulation = true };
+            side.Add(resultStrip);
+
+            var note = new Label("The cube shows the base gradient. These show what it evaluates to.");
+            note.AddToClassList("abcw-tab-pane__note");
+            side.Add(note);
+            viewportHost.Add(side);
+        }
+
+        private void BuildRail(VisualElement railHost)
+        {
+            if (railHost == null)
+                return;
+
+            var caption = new Label("EDITING");
+            caption.AddToClassList("abcw-rail__cap");
+            railHost.Add(caption);
+
+            modeSelector = new KeyModeSelector { name = "modeSelector" };
+            railHost.Add(modeSelector);
+            modeSelector.ModeChanged += OnModeChanged;
+            modeSelector.AddKeyRequested += AddKey;
+
+            railHost.Add(new VisualElement { style = { flexGrow = 1 } });
+
+            keyCount = new Label();
+            keyCount.AddToClassList("abcw-rail__count");
+            railHost.Add(keyCount);
+        }
+
+        private void BuildTabs(VisualElement tabHost)
+        {
+            if (tabHost == null)
+                return;
+
+            colorList = new KeyList3DElement(isAlpha: false);
+            alphaList = new KeyList3DElement(isAlpha: true);
+            alphaList.AddToClassList("abcw-list-card--spaced");
+            colorList.Changed += OnWorkingChanged;
+            alphaList.Changed += OnWorkingChanged;
+            colorList.KeySelected += OnListKeySelected;
+            alphaList.KeySelected += OnListKeySelected;
+
+            var keysPane = new VisualElement { name = "keysPane" };
+            keysPane.AddToClassList("abcw-tab-pane");
+            keysPane.AddToClassList("abcw-tab-pane--row");
+            keysPane.Add(colorList);
+            keysPane.Add(alphaList);
+
+            adjustPanel = new GradientAdjust3DPanel { name = "adjustPane" };
+            adjustPanel.Changed += OnWorkingChanged;
+
+            modulationPanel = new ModulationPanel { name = "modulatePane" };
+            modulationPanel.AddToClassList("abcw-tab-pane");
+            modulationPanel.RegisterValueChangedCallback(evt =>
+            {
+                if (working == null) return;
+                working.Modulation = evt.newValue;
+                OnWorkingChanged();
+            });
+
+            rebuildPanel = new GradientRebuildPanel { name = "rebuildPane" };
+            rebuildPanel.AddTextureAction("textureScatter", "Scatter 16 keys",
+                "Take a palette from the texture and scatter it through the cube. Reroll rearranges the "
+                + "positions. (A 1xN strip has no 3D reading, so there is no strict mode.)", SampleTexture);
+            rebuildPanel.AddMeshAction("sampleMesh", "Sample vertex colours",
+                "Rebuild the gradient from the mesh's coloured vertices, using each vertex's position in "
+                + "the mesh bounds.", SampleMesh);
+
+            libraryPanel = new GradientLibrary3DPanel { GetCurrentGradient = () => working };
+            libraryPanel.AddToClassList("abcw-tab-pane");
+            libraryPanel.Loaded += AdoptWorking;
+
+            // Deliberately no viewDataKey: a remembered tab would make a freshly opened picker land
+            // wherever the last one was left, which is neither predictable nor what a session editing a
+            // different gradient wants.
+            var tabs = new TabView { name = "pickerTabs" };
+            tabs.AddToClassList("abcw-tabs");
+            PickerShell.AddTab(tabs, "Keys", "keysTab", keysPane);
+            PickerShell.AddTab(tabs, "Adjust", "adjustTab", adjustPanel);
+            PickerShell.AddTab(tabs, "Modulate", "modulateTab", modulationPanel);
+            PickerShell.AddTab(tabs, "Rebuild", "rebuildTab", rebuildPanel);
+            PickerShell.AddTab(tabs, "Library", "libraryTab", libraryPanel);
+            tabHost.Add(tabs);
+            tabs.selectedTabIndex = 0;
+
+            // A key list rebuilt while its tab was hidden has no rows at all: a ListView with no size
+            // virtualises nothing. Sampling on the Rebuild tab and switching back to Keys is exactly
+            // that sequence, so the newly shown tab re-reads the gradient.
+            tabs.activeTabChanged += (_, _) => RefreshAllViews();
+        }
+
+        /// <summary>Escape cancels and Enter accepts, which the window has never answered to.</summary>
+        private void OnWindowKeyDown(KeyDownEvent evt)
+        {
+            if (evt.keyCode == KeyCode.Escape)
+            {
+                Cancel();
+                evt.StopPropagation();
+                return;
+            }
+
+            // Not while a text field has focus: Enter there means "commit this number".
+            if ((evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+                && rootVisualElement.panel?.focusController?.focusedElement is not ITextEdition)
+            {
+                Accept();
+                evt.StopPropagation();
+            }
+        }
+
+        private void SampleTexture()
+        {
+            if (ColorSampler3D.TrySampleTexture(rebuildPanel.Texture, ColorSampler3D.DefaultKeyCount,
+                    rebuildPanel.Seed, out var sampled, out string error))
+                AdoptWorking(sampled);
+            else
+                EditorUtility.DisplayDialog("Scatter", error, "OK");
+        }
+
+        private void SampleMesh()
+        {
+            if (ColorSampler3D.TrySampleMesh(rebuildPanel.Mesh, ColorSampler3D.DefaultKeyCount,
+                    rebuildPanel.Seed, out var sampled, out string error))
+                AdoptWorking(sampled);
+            else
+                EditorUtility.DisplayDialog("Sample Mesh", error, "OK");
         }
 
         private void RefreshAllViews()
@@ -160,8 +307,11 @@ namespace ABCodeworld.Gradients.Editor
             cube.AlphaMode = modeSelector.IsAlpha;
             colorList.SetGradient(working);
             alphaList.SetGradient(working);
-            actionsPanel.SetGradient(working);
+            adjustPanel.SetGradient(working);
+            modulationPanel.SetValueWithoutNotify(working.Modulation);
+            resultStrip.Gradient = working;
             SyncAddKeyEnabled();
+            SyncKeyCount();
         }
 
         private void OnModeChanged(bool isAlpha)
@@ -241,8 +391,23 @@ namespace ABCodeworld.Gradients.Editor
             cube.Gradient = working;
             colorList.Refresh();
             alphaList.Refresh();
+            resultStrip.Gradient = working;
             SyncAddKeyEnabled();
+            SyncKeyCount();
             RequestLivePreview();
+        }
+
+        /// <summary>
+        /// The rail's running total. The key cap used to fail in silence: adding past it simply did
+        /// nothing beyond disabling one button, with no count anywhere.
+        /// </summary>
+        private void SyncKeyCount()
+        {
+            if (keyCount == null || working == null)
+                return;
+
+            int used = working.ColorKeys.Length + working.AlphaKeys.Length;
+            keyCount.text = $"{used} / {GradientABCW3D.MaxKeys * 2}";
         }
 
         /// <summary>
