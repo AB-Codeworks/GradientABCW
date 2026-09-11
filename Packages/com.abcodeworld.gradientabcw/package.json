@@ -23,9 +23,9 @@
     "com.unity.collections": "6.5.0",
     "com.unity.mathematics": "1.4.0",
     "com.unity.modules.uielements": "1.0.0",
-    "com.unity.test-framework": "1.5.1",
-    "com.unity.test-framework.performance": "3.1.0",
-    "com.unity.ui.test-framework": "1.0.0"
+    "com.unity.test-framework": "1.4.6",
+    "com.unity.test-framework.performance": "3.2.0",
+    "com.unity.ui.test-framework": "6.5.0"
   },
   "samples": [
     {
