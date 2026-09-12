@@ -126,12 +126,22 @@ namespace ABCodeworld.Gradients.Tests.Editor.Runtime
             }
         }
 
+        /// <summary>Evaluation allocates nothing once the native snapshot exists.</summary>
+        /// <remarks>
+        /// The warm-up runs the delegate rather than calling Evaluate beside it, which is not a stylistic
+        /// choice. Calling Evaluate directly warms the native cache but leaves the lambda itself
+        /// uncompiled, so its first invocation - the measured one - carries the JIT's own allocations and
+        /// the test fails having measured the harness instead of the code. That is exactly how it failed
+        /// in CI, on a colder JIT, after passing here and in two earlier CI runs on the same commit.
+        /// </remarks>
         [Test]
         public void Evaluate_NoAllocations()
         {
             var g = TestGradients.WithModulation();
-            g.Evaluate(0.5f); // warm the native cache first
-            Assert.That(() => { g.Evaluate(0.5f); }, Is.Not.AllocatingGCMemory());
+            TestDelegate evaluate = () => { g.Evaluate(0.5f); };
+
+            evaluate(); // warms the native cache and compiles this delegate
+            Assert.That(evaluate, Is.Not.AllocatingGCMemory());
         }
     }
 }
